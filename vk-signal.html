@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VK Signal</title>
+<meta name="theme-color" content="#0A0907">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Black & gold trading terminal. Sticky top bar, one content column, signal cards grid, detail sheet. */
+:root{
+  --bg:#0A0907; --surface:#14120E; --surface-2:#1C1914; --line:#2F2A20; --line-soft:#23201A;
+  --fg:#F3EEE3; --muted:#A39A86; --accent:#D9AC45; --accent-soft:rgba(217,172,69,.14); --accent-ink:#120E05;
+  --gold-hi:#F4D77E; --gold-lo:#A97A1C;
+  --buy:#1FC48D; --buy-soft:rgba(31,196,141,.14); --sell:#FF5A6A; --sell-soft:rgba(255,90,106,.14); --warn:#E8873A; --warn-soft:rgba(232,135,58,.15);
+  --shadow:0 18px 50px rgba(0,0,0,.45);
+  --font-display:'Chakra Petch','Segoe UI',system-ui,sans-serif;
+  --font-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root{
+  --bg:#F6F2EA; --surface:#FFFFFF; --surface-2:#EFE9DD; --line:#DCD2BE; --line-soft:#E8E1D3;
+  --fg:#17130C; --muted:#6B6150; --accent:#94690C; --accent-soft:rgba(148,105,12,.11); --accent-ink:#FFFFFF;
+  --gold-hi:#E3BC55; --gold-lo:#8A600B;
+  --buy:#0E9A6B; --buy-soft:rgba(14,154,107,.11); --sell:#D93347; --sell-soft:rgba(217,51,71,.10); --warn:#C0611A; --warn-soft:rgba(192,97,26,.12);
+  --shadow:0 18px 50px rgba(60,45,15,.16); color-scheme:light;
+}}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);margin:0}
+body{font-family:var(--font-body);font-size:15px;line-height:1.5;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:20px;padding-block:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg)}
+.brand b{font-family:var(--font-display);font-size:20px;letter-spacing:.02em;font-weight:700}
+.brand b span{color:var(--accent)}
+nav.tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto}
+nav.tabs a{padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--muted);font-weight:500;white-space:nowrap}
+nav.tabs a:hover{color:var(--fg);background:var(--surface-2)}
+nav.tabs a[aria-current="page"]{color:var(--fg);background:var(--accent-soft)}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);border:1px solid var(--line);padding:4px 10px;border-radius:999px;white-space:nowrap}
+.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.live.on{color:var(--buy)} .live.on::before{background:var(--buy);animation:pulse 1.6s infinite}
+.live.off{color:var(--warn)} .live.off::before{background:var(--warn)}
+main{padding-block:24px 48px}
+h1,h2{font-family:var(--font-display);text-wrap:balance;margin:0}
+h1{font-size:26px;font-weight:600}
+h2{font-size:19px;font-weight:600}
+.sub{color:var(--muted);margin:4px 0 0;max-width:72ch}
+.view-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:18px}
+.strip>div{background:var(--surface);padding:14px 16px;min-width:0}
+.k{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;margin-top:2px}
+.v small{font-size:12.5px;color:var(--muted);font-weight:500}
+.pos{color:var(--buy)} .neg{color:var(--sell)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:999px;font-size:13.5px;color:var(--muted)}
+.chip[aria-pressed="true"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+.field{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;text-align:left;width:100%}
+.card:hover{border-color:var(--accent)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.sym{font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:.02em}
+.meta{font-size:12.5px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.side{font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.08em;padding:4px 10px;border-radius:6px}
+.side.BUY{background:var(--buy-soft);color:var(--buy)}
+.side.SELL{background:var(--sell-soft);color:var(--sell)}
+.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.lv.hit .k::after{content:" ✓";color:var(--buy)}
+.lv{background:var(--surface-2);border-radius:7px;padding:6px 7px;min-width:0}
+.lv .k{font-size:10.5px}
+.lv .p{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lv.sl .k{color:var(--sell)}
+.lv.hit{background:var(--buy-soft)} .lv.hit .k::after{content:" ✓";color:var(--buy)}
+.lv.slhit{background:var(--sell-soft)}
+.card-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.status{font-size:12px;font-weight:600;letter-spacing:.03em;padding:3px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.status.active{background:var(--accent-soft);color:var(--accent)}
+.status.active::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 1.6s infinite}
+.status.win{background:var(--buy-soft);color:var(--buy)}
+.status.loss{background:var(--sell-soft);color:var(--sell)}
+@keyframes pulse{50%{opacity:.3}}
+.rval{font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.rval small{display:block;font-size:11.5px;color:var(--muted);font-weight:500}
+.empty{padding:40px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;grid-column:1/-1}
+.empty b{display:block;color:var(--fg);font-family:var(--font-display);font-size:17px;margin-bottom:4px}
+.overlay{position:fixed;inset:0;z-index:40;background:rgba(6,5,2,.66);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(24px,env(safe-area-inset-top,0px)) 12px 24px}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);width:100%;max-width:760px;padding:20px;display:flex;flex-direction:column;gap:16px}
+.sheet-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.icon-btn{width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;flex:none}
+.btn{border:1px solid var(--line);background:var(--surface-2);padding:8px 14px;border-radius:9px;font-weight:500}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.chart-box{position:relative;width:100%;height:260px;background:var(--surface-2);border-radius:10px;overflow:hidden}
+.chart-box canvas{width:100%;height:100%;display:block}
+.cap{font-size:12.5px;color:var(--muted);margin:-8px 0 0}
+.dtable{width:100%;border-collapse:collapse;font-size:14px}
+.dtable th,.dtable td{padding:8px 10px;border-bottom:1px solid var(--line-soft);text-align:left;white-space:nowrap}
+.dtable th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.dtable td.num,.dtable th.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.dtable tr.click{cursor:pointer} .dtable tr.click:hover td{background:var(--surface-2)}
+.scroll-x{overflow-x:auto;min-width:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.stat-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.bars{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:10px;height:190px}
+.bar-col{display:grid;grid-template-rows:1fr 1fr auto;min-width:0}
+.bar-col .up,.bar-col .dn{position:relative}
+.bar-col .up span.b{position:absolute;bottom:0;left:15%;right:15%;background:var(--buy);border-radius:4px 4px 0 0}
+.bar-col .dn span.b{position:absolute;top:0;left:15%;right:15%;background:var(--sell);border-radius:0 0 4px 4px}
+.bar-col .up{border-bottom:1px solid var(--line)}
+.bar-col em{font-style:normal;font-size:11.5px;color:var(--muted);text-align:center;padding-top:6px;white-space:nowrap}
+.bar-col .lbl{position:absolute;left:0;right:0;text-align:center;font-family:var(--font-mono);font-size:11px;font-weight:600}
+.trend{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
+.trend.NAIK{background:var(--buy-soft);color:var(--buy)} .trend.TURUN{background:var(--sell-soft);color:var(--sell)}
+.trend.MENDATAR,.trend.TIADA{background:var(--surface-2);color:var(--muted)}
+.spark{width:110px;height:30px;display:block}
+.note{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:10px 12px;margin:0;max-width:80ch}
+.banner{font-size:13.5px;background:var(--warn-soft);color:var(--warn);border-radius:9px;padding:10px 12px;margin:0 0 16px}
+footer{color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-block:18px 28px}
+@media (max-width:860px){.stat-grid{grid-template-columns:minmax(0,1fr)}.strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.top .wrap{gap:10px}nav.tabs{order:3;flex-basis:100%}.live{margin-left:auto}.grid{grid-template-columns:minmax(0,1fr)}.chart-box{height:210px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#signals" aria-label="VK Signal">
+      <svg width="34" height="38" viewBox="0 0 34 38" aria-hidden="true">
+        <defs><linearGradient id="vkGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--gold-hi)"/><stop offset="1" stop-color="var(--gold-lo)"/></linearGradient></defs>
+        <path d="M17 1.5 31.5 6.5v11.2c0 9.2-6 15.6-14.5 18.8C8.5 33.3 2.5 26.9 2.5 17.7V6.5Z" fill="url(#vkGold)"/>
+        <path d="M17 5 28.3 8.9v8.8c0 7.3-4.6 12.4-11.3 15.2C10.3 30.1 5.7 25 5.7 17.7V8.9Z" fill="#0A0907"/>
+        <path d="M8.6 12.5l3.6 11 3.6-11" fill="none" stroke="url(#vkGold)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M18.6 12.5v11M25.4 12.5l-6 5.5 6 5.5" fill="none" stroke="url(#vkGold)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <b>VK <span>Signal</span></b>
+    </a>
+    <nav class="tabs" aria-label="Menu utama">
+      <a href="#signals" data-v="signals">Signal</a>
+      <a href="#market" data-v="market">Pasaran</a>
+      <a href="#stats" data-v="stats">Statistik</a>
+    </nav>
+    <span class="live" id="live">Memuatkan…</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <p class="banner" id="banner" hidden></p>
+
+  <section id="v-signals">
+    <div class="view-head">
+      <div><h1>Signal Trading</h1><p class="sub">Signal automatik daripada harga sebenar, disemak setiap jam (candle H1). Emas, perak dan crypto.</p></div>
+    </div>
+    <p class="note" id="phase" style="margin-bottom:16px" hidden></p>
+    <div class="strip" id="strip"></div>
+    <div class="filters">
+      <div class="chips" id="chips" role="group" aria-label="Jenis aset"></div>
+      <select class="field" id="statusSel" aria-label="Status">
+        <option value="all">Semua status</option><option value="active">Sedang berjalan</option><option value="win">Untung</option><option value="loss">Rugi</option>
+      </select>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section id="v-market" hidden>
+    <div class="view-head">
+      <div><h1>Pasaran sekarang</h1><p class="sub">Harga terkini dan arah trend. Bila trend NAIK, signal BUY keluar kalau candle H1 tutup di atas paras tertinggi 50 jam. Bila TURUN, SELL keluar kalau tutup di bawah paras terendah 50 jam.</p></div>
+    </div>
+    <div class="panel"><div class="scroll-x"><table class="dtable" id="mkTable"></table></div></div>
+  </section>
+
+  <section id="v-stats" hidden>
+    <div class="view-head">
+      <div><h1>Prestasi</h1><p class="sub" id="statSub"></p></div>
+    </div>
+    <div class="strip" id="statStrip"></div>
+    <div class="stat-grid">
+      <div class="panel"><h2>Keputusan mingguan</h2><div class="bars" id="bars"></div></div>
+      <div class="panel"><h2>Cara kira untung</h2>
+        <p class="note">Contoh risiko <b>$10</b> setiap signal. Jarak entry ke SL = 2 × ATR. Tiada TP tetap: trade ditutup bila candle H1 tutup melintasi EMA50, jadi trade yang menang boleh berjalan jauh.</p>
+        <table class="dtable"><tbody>
+          <tr><td>Kena SL</td><td class="num neg">−$10.00</td></tr>
+          <tr><td>Keluar awal, harga tak bergerak</td><td class="num">sekitar −$3 hingga +$3</td></tr>
+          <tr><td>Harga bergerak 2× jarak SL</td><td class="num pos">+$20.00</td></tr>
+          <tr><td>Harga bergerak 5× jarak SL</td><td class="num pos">+$50.00</td></tr>
+        </tbody></table>
+        <p class="note">Dalam ujian 2 tahun, kira-kira 7 daripada 10 trade rugi atau hampir kosong. Untung datang daripada beberapa trade besar, jadi ikut setiap signal dengan risiko yang sama.</p>
+      </div>
+    </div>
+    <div class="panel"><h2>Sejarah signal</h2><div class="scroll-x"><table class="dtable" id="histTable"></table></div></div>
+  </section>
+</main>
+
+<footer class="wrap">VK Signal · Signal dijana automatik oleh strategi breakout 50 jam ikut trend (EMA50/EMA200), SL 2×ATR, keluar bila harga tutup melintasi EMA50. Strategi ini kerap rugi kecil dan kadang-kadang untung besar. Keputusan lampau tidak menjamin keputusan akan datang. Bukan nasihat kewangan; trading melibatkan risiko kehilangan modal.</footer>
+
+<div class="overlay" id="overlay" hidden></div>
+
+<script>
+(function(){
+const RISK=10;
+const ASSETS={all:'Semua',metal:'Emas & perak',crypto:'Crypto'};
+const $=s=>document.querySelector(s);
+let D=null,err=null,loading=true,openSym=null,openId=null;
+const filt={asset:'all',status:'all'};
+
+function dp(v){v=Math.abs(v);return v<10?5:v<1000?3:2}
+function px(v,ref){return Number(v).toLocaleString('en-US',{minimumFractionDigits:dp(ref??v),maximumFractionDigits:dp(ref??v)})}
+function money(r){const m=r*RISK;return (m>0?'+':m<0?'−':'')+'$'+Math.abs(m).toFixed(2)}
+function dirOf(s){return s.side==='BUY'?1:-1}
+function risk(s){return s.R||Math.abs(s.entry-s.sl)||1e-9}
+function active(s){return s.status==='BERJALAN'}
+function net(s){return s.pnl-(s.costR||0)}
+function kind(s){return active(s)?'active':net(s)>0?'win':'loss'}
+function statusText(s){
+  if(active(s))return 'Sedang berjalan';
+  if(s.status==='SL kena')return 'Kena SL';
+  return net(s)>0?'Keluar untung':'Keluar rugi kecil';
+}
+function mk(sym){return D&&D.market.find(m=>m.sym===sym)}
+function floatR(s){const m=mk(s.sym);if(!m)return null;return (m.price-s.entry)*dirOf(s)/risk(s)-(s.costR||0)}
+function move(s,diff){const a=Math.abs(diff);
+  if(s.asset==='forex')return Math.round(a/(/JPY/.test(s.sym)?0.01:0.0001))+' pip';
+  if(s.asset==='metal')return Math.round(a/(/XAU/.test(s.sym)?0.1:0.01))+' pip';
+  return '$'+px(a,s.entry)}
+function when(iso){if(!iso)return '–';const d=new Date(iso),m=(Date.now()-d)/60000;
+  if(m>=0&&m<60)return Math.max(1,Math.round(m))+' min lalu';
+  if(m>=0&&m<1440)return Math.round(m/60)+' jam lalu';
+  return d.toLocaleDateString('ms-MY',{day:'numeric',month:'short'})+', '+d.toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function esc(t){return String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function strip(items){return items.map(([k,v,c])=>`<div><div class="k">${k}</div><div class="v ${c||''}">${v}</div></div>`).join('')}
+
+async function load(){
+  try{
+    const r=await fetch('vk-signals.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error(r.status);
+    const j=await r.json();
+    if(!j||!Array.isArray(j.signals)||!Array.isArray(j.market))throw new Error('format');
+    D=j;err=null;
+  }catch(e){err=D?'stale':(String(e.message)==='404'?'none':'fail')}
+  loading=false;render();
+}
+
+function renderLive(){
+  const el=$('#live'),b=$('#banner');
+  if(loading){el.className='live';el.textContent='Memuatkan…';return}
+  if(!D){el.className='live off';el.textContent='Tiada data';b.hidden=false;
+    b.textContent=err==='none'?'Data signal belum dijana. Ia akan muncul selepas imbasan automatik pertama (setiap jam).':'Tak dapat memuatkan data. Semak sambungan internet dan muat semula.';return}
+  const age=(Date.now()-new Date(D.updated))/60000;
+  el.className='live '+(age<130?'on':'off');el.textContent=(age<130?'Live · ':'Lambat · ')+when(D.updated);
+  const wk=new Date().getDay();
+  b.hidden=!(age>=130&&wk!==0&&wk!==6);
+  b.textContent='Imbasan terakhir '+when(D.updated)+'. Data mungkin lambat; ia akan dikemas kini semasa imbasan seterusnya.';
+}
+function renderChips(){
+  $('#chips').innerHTML=Object.entries(ASSETS).map(([k,v])=>`<button class="chip" data-a="${k}" aria-pressed="${filt.asset===k}">${v}</button>`).join('');
+  $('#chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{filt.asset=b.dataset.a;renderChips();renderGrid()});
+}
+$('#statusSel').onchange=e=>{filt.status=e.target.value;renderGrid()};
+
+function renderStrip(){
+  const S=D?D.signals:[],closed=S.filter(s=>!active(s)),wins=closed.filter(s=>net(s)>0),tot=closed.reduce((a,s)=>a+net(s),0);
+  const d=loading?'…':'–';
+  $('#strip').innerHTML=strip([
+    ['Sedang berjalan',D?S.filter(active).length:d],
+    ['Win rate',closed.length?Math.round(wins.length/closed.length*100)+'%':d],
+    ['Jumlah (risiko $10)',closed.length?money(tot):d,closed.length?(tot>=0?'pos':'neg'):''],
+    ['Signal 7 hari',D?S.filter(s=>Date.now()-new Date(s.time)<7*864e5).length:d]
+  ]);
+}
+function exitPx(s){return active(s)?s.exitLevel:s.exitPrice}
+function levels(s){
+  const ex=exitPx(s);
+  return `<div class="levels"><div class="lv"><div class="k">Entry</div><div class="p">${px(s.entry,s.entry)}</div></div>
+    <div class="lv sl ${s.status==='SL kena'?'slhit':''}"><div class="k">SL</div><div class="p">${px(s.sl,s.entry)}</div></div>
+    <div class="lv ${!active(s)&&s.status!=='SL kena'?(net(s)>0?'hit':''):''}"><div class="k">${active(s)?'Keluar (EMA50)':'Harga keluar'}</div><div class="p">${ex==null?'–':px(ex,s.entry)}</div></div></div>`;
+}
+function card(s){
+  let r=active(s)?floatR(s):net(s);
+  const lbl=active(s)?'terapung':'keputusan';
+  return `<button class="card" data-id="${esc(s.id)}">
+    <div class="card-top"><div><div class="sym">${esc(s.sym)}</div><div class="meta">${ASSETS[s.asset]||''} · ${esc(s.tf)} · ${when(s.time)}</div></div><span class="side ${s.side}">${s.side}</span></div>
+    ${levels(s)}
+    <div class="card-foot"><span class="status ${kind(s)}">${statusText(s)}</span>${r==null?'':`<span class="rval ${r>=0?'pos':'neg'}">${money(r)}<small>${lbl}, risiko $10</small></span>`}</div>
+  </button>`;
+}
+function renderGrid(){
+  const g=$('#grid');
+  if(!D){g.innerHTML=`<div class="empty"><b>${loading?'Memuatkan signal…':'Belum ada data'}</b>${loading?'':'Signal akan muncul selepas imbasan automatik.'}</div>`;return}
+  const list=D.signals.filter(s=>(filt.asset==='all'||s.asset===filt.asset)&&(filt.status==='all'||kind(s)===filt.status))
+    .sort((a,b)=>active(a)!==active(b)?(active(a)?-1:1):new Date(b.time)-new Date(a.time));
+  const ph=$('#phase');ph.hidden=false;ph.innerHTML='<b>Fasa uji hadapan.</b> Rekod sebenar VK Signal bermula '+new Date(D.mula).toLocaleDateString('ms-MY',{day:'numeric',month:'long',year:'numeric'})+'. Dalam ujian 2 tahun lepas (emas, perak, 4 crypto, selepas spread), strategi ini untung kira-kira +$2,970 dengan risiko $10 setiap signal, tetapi rugi 7 daripada 10 trade. Keputusan lampau tidak menjamin keputusan akan datang.';
+  if(!D.signals.length){g.innerHTML=`<div class="empty"><b>Belum ada signal baru</b>Sistem mengimbas ${D.market.length} pasangan setiap jam. Signal hanya keluar bila harga pecah paras tertinggi atau terendah 50 jam searah trend, jadi mungkin perlu beberapa jam atau hari. Lihat tab <a href="#market" style="color:var(--accent)">Pasaran</a> untuk keadaan sekarang.</div>`;return}
+  g.innerHTML=list.length?list.map(card).join(''):'<div class="empty">Tiada signal sepadan dengan penapis ini.</div>';
+  g.querySelectorAll('.card').forEach(c=>c.onclick=()=>openSignal(c.dataset.id));
+}
+
+function spark(m){
+  const c=m.c||[];if(c.length<2)return '';
+  const lo=Math.min(...c),hi=Math.max(...c),w=110,h=30,y=v=>h-2-(v-lo)/((hi-lo)||1)*(h-4);
+  const pts=c.map((v,i)=>(i/(c.length-1)*w).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+  const col=c[c.length-1]>=c[0]?'var(--buy)':'var(--sell)';
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5"/></svg>`;
+}
+function renderMarket(){
+  const t=$('#mkTable');
+  if(!D){t.innerHTML=`<tbody><tr><td style="color:var(--muted)">${loading?'Memuatkan…':'Belum ada data.'}</td></tr></tbody>`;return}
+  t.innerHTML=`<thead><tr><th>Pasangan</th><th class="num">Harga</th><th class="num">24 jam</th><th>Trend</th><th class="num">Paras signal</th><th>5 hari</th><th>Signal</th></tr></thead><tbody>${D.market.map(m=>{
+    const s=D.signals.find(x=>x.sym===m.sym&&active(x));
+    const lvl=m.trend==='NAIK'&&m.hi50!=null?'BUY > '+px(m.hi50,m.price):m.trend==='TURUN'&&m.lo50!=null?'SELL < '+px(m.lo50,m.price):'–';
+    return `<tr class="click" data-sym="${esc(m.sym)}"><td><b>${esc(m.sym)}</b><div class="meta">${ASSETS[m.asset]||''}</div></td><td class="num">${px(m.price)}</td>
+    <td class="num ${m.change24>=0?'pos':'neg'}">${m.change24==null?'–':(m.change24>0?'+':'')+m.change24.toFixed(2)+'%'}</td>
+    <td><span class="trend ${m.trend}">${m.trend==='TIADA'?'–':m.trend}</span></td><td class="num">${lvl}</td><td>${spark(m)}</td>
+    <td>${s?`<span class="side ${s.side}" style="font-size:11px;padding:2px 7px">${s.side}</span>`:'<span class="meta">Tunggu</span>'}</td></tr>`}).join('')}</tbody>`;
+  t.querySelectorAll('tr.click').forEach(r=>r.onclick=()=>openMarket(r.dataset.sym));
+}
+
+function weekStart(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
+function renderStats(){
+  $('#statSub').textContent=D?'Dikira daripada signal sebenar yang sudah ditutup, selepas anggaran spread, sejak rekod bermula '+new Date(D.mula).toLocaleDateString('ms-MY',{day:'numeric',month:'long',year:'numeric'})+'. Tiada keputusan ujian lampau dimasukkan.':'';
+  const S=D?D.signals:[],closed=S.filter(s=>!active(s)).sort((a,b)=>new Date(b.exitTime||b.time)-new Date(a.exitTime||a.time));
+  const wins=closed.filter(s=>net(s)>0),tot=closed.reduce((a,s)=>a+net(s),0),none=!closed.length;
+  $('#statStrip').innerHTML=strip([
+    ['Win rate',none?'–':Math.round(wins.length/closed.length*100)+'%'],
+    ['Jumlah (risiko $10)',none?'–':money(tot),none?'':(tot>=0?'pos':'neg')],
+    ['Signal ditutup',closed.length+(none?'':` <small>${wins.length} untung / ${closed.length-wins.length} rugi</small>`)],
+    ['Purata setiap signal',none?'–':money(tot/closed.length),none?'':(tot>=0?'pos':'neg')]
+  ]);
+  const ws=weekStart(new Date()),weeks=[];
+  for(let i=5;i>=0;i--){const st=new Date(ws);st.setDate(st.getDate()-7*i);weeks.push({st,r:0,n:0})}
+  closed.forEach(s=>{const w=weekStart(s.exitTime||s.time).getTime(),b=weeks.find(x=>x.st.getTime()===w);if(b){b.r+=net(s);b.n++}});
+  const mx=Math.max(1,...weeks.map(w=>Math.abs(w.r)));
+  $('#bars').innerHTML=weeks.map(w=>{const h=Math.abs(w.r)/mx*78;const lbl=`<span class="lbl ${w.r>=0?'pos':'neg'}" style="${w.r>=0?`bottom:calc(${h}% + 3px)`:`top:calc(${h}% + 3px)`}">${w.n?money(w.r):''}</span>`;
+    return `<div class="bar-col"><div class="up">${w.r>0?`<span class="b" style="height:${h}%"></span>`:''}${w.r>=0?lbl:''}</div><div class="dn">${w.r<0?`<span class="b" style="height:${h}%"></span>`+lbl:''}</div><em>${w.st.toLocaleDateString('ms-MY',{day:'numeric',month:'short'})}</em></div>`}).join('');
+  $('#histTable').innerHTML=`<thead><tr><th>Ditutup</th><th>Pasangan</th><th>Arah</th><th class="num">Entry</th><th>Keputusan</th><th class="num">Risiko $10</th></tr></thead><tbody>${closed.map(s=>`<tr class="click" data-id="${esc(s.id)}"><td>${when(s.exitTime)}</td><td><b>${esc(s.sym)}</b></td><td><span class="side ${s.side}" style="font-size:11px;padding:2px 7px">${s.side}</span></td><td class="num">${px(s.entry,s.entry)}</td><td><span class="status ${kind(s)}">${statusText(s)}</span></td><td class="num ${net(s)>=0?'pos':'neg'}">${money(net(s))}</td></tr>`).join('')||`<tr><td colspan="6" style="color:var(--muted)">${loading?'Memuatkan…':'Belum ada signal ditutup. Prestasi dikira bila signal pertama selesai.'}</td></tr>`}</tbody>`;
+  $('#histTable').querySelectorAll('tr.click').forEach(r=>r.onclick=()=>openSignal(r.dataset.id));
+}
+
+/* ---- detail ---- */
+function drawChart(cv,m,s){
+  const box=cv.parentElement,W=box.clientWidth,H=box.clientHeight,d=window.devicePixelRatio||1;
+  cv.width=W*d;cv.height=H*d;const g=cv.getContext('2d');g.scale(d,d);
+  const css=getComputedStyle(document.documentElement),col=n=>css.getPropertyValue(n).trim();
+  const pts=(m&&m.c)||[],times=(m&&m.t)||[],ref=s?s.entry:(pts[pts.length-1]||1);
+  const lv=s?[s.sl,s.entry].concat(exitPx(s)!=null?[exitPx(s)]:[]):[];const all=pts.concat(lv);if(!all.length)return;
+  let lo=Math.min(...all),hi=Math.max(...all);const pad=(hi-lo)*.08||ref*.001;lo-=pad;hi+=pad;
+  const L=10,Rm=s?104:70,T=12,B=14,n=Math.max(pts.length-1,1),x=i=>L+i/n*(W-L-Rm),y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  g.font='11px "JetBrains Mono", monospace';g.textBaseline='middle';
+  const line=(v,c,label,dash)=>{g.strokeStyle=c;g.lineWidth=1;g.setLineDash(dash?[4,4]:[]);g.beginPath();g.moveTo(L,y(v));g.lineTo(W-Rm+4,y(v));g.stroke();g.setLineDash([]);g.fillStyle=c;g.fillText(label+' '+px(v,ref),W-Rm+8,y(v))};
+  if(s){line(s.sl,col('--sell'),'SL',true);const ex=exitPx(s);if(ex!=null)line(ex,col('--buy'),active(s)?'EMA50':'KELUAR',true);line(s.entry,col('--muted'),'EN',false)}
+  if(pts.length>1){
+    const grad=g.createLinearGradient(0,T,0,H);grad.addColorStop(0,col('--accent-soft'));grad.addColorStop(1,'rgba(0,0,0,0)');
+    g.beginPath();pts.forEach((v,i)=>i?g.lineTo(x(i),y(v)):g.moveTo(x(i),y(v)));g.lineTo(x(pts.length-1),H-B);g.lineTo(x(0),H-B);g.closePath();g.fillStyle=grad;g.fill();
+    g.beginPath();pts.forEach((v,i)=>i?g.lineTo(x(i),y(v)):g.moveTo(x(i),y(v)));g.strokeStyle=col('--accent');g.lineWidth=2;g.lineJoin='round';g.stroke();
+    if(s){const si=times.indexOf(s.time);if(si>=0){g.strokeStyle=col('--muted');g.setLineDash([2,3]);g.beginPath();g.moveTo(x(si),T);g.lineTo(x(si),H-B);g.stroke();g.setLineDash([]);
+      g.beginPath();g.arc(x(si),y(s.entry),5,0,7);g.fillStyle=s.side==='BUY'?col('--buy'):col('--sell');g.fill()}}
+    const li=pts.length-1;g.beginPath();g.arc(x(li),y(pts[li]),4.5,0,7);g.fillStyle=col('--accent');g.fill();
+    if(!s){g.fillStyle=col('--accent');g.fillText(px(pts[li]),W-Rm+8,y(pts[li]))}
+  }
+}
+function sheet(html){const o=$('#overlay');o.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;o.hidden=false;document.body.style.overflow='hidden'}
+function closeSheet(){openSym=openId=null;$('#overlay').hidden=true;$('#overlay').innerHTML='';document.body.style.overflow=''}
+$('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay'||e.target.closest('[data-close]'))closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#overlay').hidden)closeSheet()});
+function copyText(s){return `VK Signal\n${s.sym} ${s.side} (${s.tf})\nEntry: ${px(s.entry,s.entry)}\nSL: ${px(s.sl,s.entry)}\nKeluar: bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} EMA50${s.exitLevel!=null?' (sekarang '+px(s.exitLevel,s.entry)+')':''}\nBukan nasihat kewangan.`}
+function openSignal(id){
+  const s=D&&D.signals.find(x=>x.id===id);if(!s)return closeSheet();openId=id;openSym=null;
+  const m=mk(s.sym),r=active(s)?floatR(s):net(s),ex=exitPx(s);
+  const rows=[['Entry',s.entry,'—','—'],['Stop loss',s.sl,move(s,s.sl-s.entry),'−$10.00']];
+  if(ex!=null)rows.push([active(s)?'Keluar sekarang (EMA50)':'Harga keluar',ex,move(s,ex-s.entry),money((ex-s.entry)*dirOf(s)/risk(s))]);
+  sheet(`<div class="sheet-head"><div><div class="row"><h2 style="font-size:24px">${esc(s.sym)}</h2><span class="side ${s.side}">${s.side}</span><span class="status ${kind(s)}">${statusText(s)}</span></div>
+      <p class="sub">${ASSETS[s.asset]||''} · ${esc(s.tf)} · candle tutup ${when(s.time)}${s.exitTime?' · selesai '+when(s.exitTime):''}</p></div>
+      <button class="icon-btn" data-close aria-label="Tutup">✕</button></div>
+    <div class="chart-box"><canvas id="cv" aria-label="Carta harga ${esc(s.sym)} dengan paras signal"></canvas></div>
+    <p class="cap">Harga penutup H1 sebenar, 5 hari terakhir${m&&m.t.indexOf(s.time)<0?'. Signal ini lebih lama daripada tempoh carta.':'. Titik berwarna = entry.'}</p>
+    <div class="scroll-x"><table class="dtable"><thead><tr><th>Paras</th><th class="num">Harga</th><th class="num">Jarak</th><th class="num">Risiko $10</th></tr></thead>
+      <tbody>${rows.map(([a,b,c,d])=>`<tr><td>${a}</td><td class="num">${px(b,s.entry)}</td><td class="num">${c}</td><td class="num">${d}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">Masuk hanya kalau harga masih dekat entry. Letak SL di paras di atas. Tiada TP tetap: tutup trade bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} garis EMA50. Paras EMA50 bergerak setiap jam dan dikemas kini di sini.</p>
+    <div class="row" style="justify-content:space-between"><span class="rval ${r>=0?'pos':'neg'}" style="font-size:18px;text-align:left">${r==null?'':money(r)+(active(s)?' terapung · harga kini '+px(m.price,s.entry):' keputusan')}</span>
+      <button class="btn primary" id="copyBtn">Salin signal</button></div>`);
+  const cv=$('#cv');cv._d=[m,s];drawChart(cv,m,s);
+  $('#copyBtn').onclick=()=>{const txt=copyText(s),done=()=>{$('#copyBtn').textContent='Disalin ✓'},fb=()=>{const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done()}catch(e){}ta.remove()};
+    try{navigator.clipboard.writeText(txt).then(done,fb)}catch(e){fb()}};
+}
+function openMarket(sym){
+  const m=mk(sym);if(!m)return closeSheet();openSym=sym;openId=null;
+  const s=D.signals.find(x=>x.sym===sym&&active(x));
+  if(s)return openSignal(s.id);
+  sheet(`<div class="sheet-head"><div><div class="row"><h2 style="font-size:24px">${esc(m.sym)}</h2><span class="trend ${m.trend}">${m.trend}</span></div>
+      <p class="sub">Harga ${px(m.price)} · EMA50 ${m.ema50==null?'–':px(m.ema50,m.price)} · ${when(m.time)}</p></div><button class="icon-btn" data-close aria-label="Tutup">✕</button></div>
+    <div class="chart-box"><canvas id="cv" aria-label="Carta harga ${esc(m.sym)}"></canvas></div>
+    <p class="note">Tiada signal berjalan untuk ${esc(m.sym)}. ${m.trend==='NAIK'?'Trend naik: BUY keluar kalau candle H1 tutup di atas '+px(m.hi50,m.price)+' (tertinggi 50 jam).':m.trend==='TURUN'?'Trend turun: SELL keluar kalau candle H1 tutup di bawah '+px(m.lo50,m.price)+' (terendah 50 jam).':'Tiada trend jelas, jadi tiada signal sehingga trend terbentuk.'}</p>`);
+  const cv=$('#cv');cv._d=[m,null];drawChart(cv,m,null);
+}
+window.addEventListener('resize',()=>{const cv=$('#cv');if(cv&&cv._d)drawChart(cv,cv._d[0],cv._d[1])});
+
+const VIEWS=['signals','market','stats'];
+function route(){const v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):'signals';
+  VIEWS.forEach(x=>{$('#v-'+x).hidden=x!==v;const a=document.querySelector(`nav.tabs a[data-v="${x}"]`);x===v?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
+  closeSheet();window.scrollTo(0,0)}
+function render(){renderLive();renderStrip();renderGrid();renderMarket();renderStats();if(openId)openSignal(openId);else if(openSym)openMarket(openSym)}
+window.addEventListener('hashchange',route);
+renderChips();render();route();load();
+setInterval(load,5*60*1000);
+setInterval(renderLive,60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+})();
+</script>
+</body>
+</html>
