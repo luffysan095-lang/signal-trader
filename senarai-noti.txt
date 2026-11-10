@@ -1,0 +1,14 @@
+# Simbol yang disemak setiap jam untuk noti Telegram (timeframe H1).
+# Satu simbol satu baris. Pelan percuma Twelve Data: 800 panggilan sehari, jadi jangan lebih 30 simbol.
+XAU/USD
+XAG/USD
+EUR/USD
+GBP/USD
+USD/JPY
+AUD/USD
+USD/CHF
+GBP/JPY
+BTC/USD
+ETH/USD
+SOL/USD
+XRP/USD
