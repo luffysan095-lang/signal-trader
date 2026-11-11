@@ -2,7 +2,8 @@ name: Noti signal crypto forex
 
 on:
   schedule:
-    - cron: '7 * * * *'
+    # Dua kali sejam supaya signal sampai lebih cepat (GitHub sering lewatkan jadual). 12 simbol x 48 = 576 panggilan sehari, bawah had 800
+    - cron: '7,37 * * * *'
   workflow_dispatch:
     inputs:
       uji:
@@ -17,6 +18,10 @@ jobs:
   semak:
     runs-on: windows-latest
     timeout-minutes: 15
+    # Satu larian pada satu masa supaya dua larian tidak menulis vk-signals.json serentak
+    concurrency:
+      group: noti-semak
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Semak signal
