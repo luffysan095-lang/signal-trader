@@ -158,6 +158,21 @@ if ($UjiFail) {
   exit
 }
 
+# Mesej ralat sebenar daripada pelayan (badan respons), bukan sekadar "400 Bad Request"
+function Get-HttpError($e) {
+  $m = "$($e.Exception.Message)"
+  try {
+    $r = $e.Exception.Response
+    if ($r) {
+      $b = if ($e.ErrorDetails -and $e.ErrorDetails.Message) { "$($e.ErrorDetails.Message)" } else {
+        $st = $r.GetResponseStream(); if ($st.CanSeek) { $st.Position = 0 }
+        (New-Object IO.StreamReader($st)).ReadToEnd()
+      }
+      $m = "HTTP $([int]$r.StatusCode)" + $(if ($b) { ': ' + $b.Substring(0, [Math]::Min(200, $b.Length)) } else { '' })
+    }
+  } catch { }
+  $m
+}
 function Send-Telegram($text) {
   if (-not $env:TELEGRAM_TOKEN -or -not $env:TELEGRAM_CHAT_ID) { return }
   $body = @{ chat_id = $env:TELEGRAM_CHAT_ID; text = $text; disable_web_page_preview = $true } | ConvertTo-Json
@@ -169,10 +184,13 @@ function Get-Candles($sym) {
   $q = [uri]::EscapeDataString($sym)
   $url = "https://api.twelvedata.com/time_series?symbol=$q&interval=$iv&outputsize=1000&timezone=Asia/Kuala_Lumpur&apikey=$($env:TWELVE_DATA_KEY)"
   for ($try = 0; $try -lt 2; $try++) {
-    $j = $null
-    try { $j = Invoke-RestMethod -Uri $url -TimeoutSec 30 } catch { if ($try -eq 1) { throw "gagal hubungi Twelve Data" } }
+    $j = $null; $err = ''
+    try { $j = Invoke-RestMethod -Uri $url -TimeoutSec 30 } catch { $err = Get-HttpError $_ }
     if ($j -and $j.values) { break }
-    if ($try -eq 1) { throw "$($j.message)" }
+    if (-not $err) { $err = "HTTP $($j.code): $($j.message)" }
+    if ($env:TWELVE_DATA_KEY) { $err = $err.Replace($env:TWELVE_DATA_KEY, '***') }
+    # Cuba semula hanya untuk had kadar (429) atau masalah rangkaian; ralat 4xx lain (cth. simbol tiada dalam pelan) tidak akan berubah
+    if ($try -eq 1 -or ($err -match '^HTTP 4' -and $err -notmatch '^HTTP 429|credit')) { throw $err }
     Start-Sleep -Seconds 65
   }
   $rows = @($j.values); [array]::Reverse($rows)
@@ -318,9 +336,12 @@ foreach ($sym in $symbols) {
     if ($cand.Count) {
       $s = $cand[$cand.Count - 1]
       if (-not $seen[$sym] -or [string]::CompareOrdinal($s.time, $seen[$sym]) -gt 0) {
-        Send-Telegram (Format-Message $sym $s $B.c[$B.c.Count - 1] $url)
-        $seen[$sym] = $s.time; $sent++
-        Write-Host "  HANTAR  $sym $($s.side) $($s.time)"
+        # Telegram gagal tidak dikira sebagai simbol gagal; signal akan dicuba lagi pada larian seterusnya
+        try {
+          Send-Telegram (Format-Message $sym $s $B.c[$B.c.Count - 1] $url)
+          $seen[$sym] = $s.time; $sent++
+          Write-Host "  HANTAR  $sym $($s.side) $($s.time)"
+        } catch { $tgErr = Get-HttpError $_; Write-Host "  TELEGRAM GAGAL  $sym : $tgErr" }
       } else { Write-Host "  sudah dihantar  $sym" }
     } else { Write-Host "  tiada signal  $sym" }
   } catch {
@@ -336,7 +357,8 @@ if ($env:UJI -eq 'true') {
   $tick = [char]::ConvertFromUtf32(0x2705)
   $t = "$tick Noti Signal Trader berfungsi.`n$($symbols.Count - $fail.Count) daripada $($symbols.Count) simbol berjaya disemak, $sent signal baru."
   if ($fail) { $t += "`nGagal: $($fail -join '; ')" }
-  Send-Telegram $t
+  try { Send-Telegram $t } catch { $tgErr = Get-HttpError $_; Write-Host "  TELEGRAM GAGAL (mesej ujian) : $tgErr" }
 }
+if ($tgErr) { Write-Host "Telegram tidak berjaya. Semak secret TELEGRAM_CHAT_ID dan TELEGRAM_TOKEN, dan pastikan anda sudah tekan Start pada bot." }
 Write-Host "Selesai: $sent noti dihantar, $($fail.Count) gagal."
 if ($symbols.Count -and $fail.Count -eq $symbols.Count) { exit 1 }
