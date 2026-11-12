@@ -136,6 +136,9 @@ h2{font-size:17px;font-weight:600}
 .sig:last-child{border-bottom:0}
 .sig:hover{background:var(--surface-2)}
 .sig .zone{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:15px}
+.tps{gap:6px}
+.tp{font-family:var(--font-mono);font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.tp.hit{background:var(--buy-soft);color:var(--buy)}
 .tfb{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted)}
 
 /* chart, stats, guide */
@@ -239,7 +242,7 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     <div class="chips" id="pairChips"></div>
     <div class="panel" id="pairHero"></div>
     <div class="seg" id="pairSeg" role="group" aria-label="Bahagian">
-      <button data-t="setup">Setup</button><button data-t="perf">Prestasi</button><button data-t="ana">Analisis</button>
+      <button data-t="setup">Setup</button><button data-t="live">Carta live</button><button data-t="perf">Prestasi</button><button data-t="ana">Analisis</button>
     </div>
     <div id="pairBody"></div>
   </section>
@@ -265,11 +268,11 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     <div class="panel"><h2>1. Bila signal keluar</h2>
       <p style="margin:0">VK Signal menyemak candle H1 (1 jam). Bila trend naik dan candle tutup di atas paras tertinggi 50 jam, keluar <b class="pos">BUY</b>. Bila trend turun dan candle tutup di bawah paras terendah 50 jam, keluar <b class="neg">SELL</b>.</p></div>
     <div class="panel"><h2>2. Cara masuk</h2>
-      <ol><li>Buka signal dan baca amaran harga. Masuk hanya kalau tertulis "masih dekat entry".</li>
+      <ol><li>Buka signal dan lihat <b>zon masuk</b>. Masuk hanya kalau harga kini berada dalam zon itu.</li>
       <li>Letak <b>Stop Loss</b> tepat pada paras SL yang ditunjukkan.</li>
       <li>Pilih saiz lot supaya rugi kalau kena SL ialah jumlah kecil yang sama setiap kali, contohnya $10.</li></ol></div>
     <div class="panel"><h2>3. Bila nak keluar</h2>
-      <p style="margin:0">Tiada TP tetap. Tutup trade bila candle H1 tutup melintasi garis EMA50. Paras EMA50 terkini ditunjukkan pada setiap signal. Cara ini membiarkan trade yang menang berjalan jauh.</p></div>
+      <p style="margin:0">Setiap signal ada <b>TP1, TP2 dan TP3</b> (1×, 2× dan 3× jarak SL). Anda boleh ambil sebahagian untung di situ. Tetapi dalam ujian 2 tahun, menutup di TP memberi hasil jauh lebih rendah (kira-kira +$630 berbanding +$2,760) daripada membiarkan trade berjalan sehingga candle H1 tutup melintasi garis EMA50. Rekod VK dikira dengan cara EMA50.</p></div>
     <div class="panel"><h2>4. Apa yang dijangka</h2>
       <table class="dtable"><tbody>
         <tr><td>Kena SL</td><td class="num neg">−$10.00</td></tr>
@@ -324,6 +327,9 @@ function esc(t){return String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt
 function strip(items){return items.map(([k,v,c])=>`<div><div class="k">${k}</div><div class="v ${c||''}">${v}</div></div>`).join('')}
 function exitPx(s){return active(s)?s.exitLevel:s.exitPrice}
 function sigs(sym){return D?D.signals.filter(s=>!sym||s.sym===sym):[]}
+function tps(s){return Array.isArray(s.tp)&&s.tp.length===3?s.tp:[1,2,3].map(k=>s.entry+dirOf(s)*k*risk(s))}
+function zone(s){const z=Array.isArray(s.zone)&&s.zone.length===2?s.zone:[s.entry-0.25*risk(s),s.entry+0.25*risk(s)];return [Math.min(z[0],z[1]),Math.max(z[0],z[1])]}
+function tpLine(s){const h=s.tpHit;return tps(s).map((t,i)=>`<span class="tp ${h!=null&&i<h?'hit':''}">TP${i+1} ${px(t,s.entry)}${h!=null&&i<h?' ✓':''}</span>`).join('')}
 
 // Harga crypto masa nyata terus dari Binance (data pasaran awam). Emas kekal ikut imbasan.
 const LIVE={BTCUSD:'btcusdt',ETHUSD:'ethusdt',SOLUSD:'solusdt',XRPUSD:'xrpusdt'},LP={};
@@ -429,7 +435,8 @@ function chase(s){
   if(d>0.5)return `<div class="chase warn">Harga kini ${p}, sudah jauh dari entry. Jangan kejar; tunggu signal seterusnya.</div>`;
   if(d<=-1)return `<div class="chase warn">Harga kini ${p}, sudah melepasi SL. Menunggu pengesahan pada imbasan seterusnya.</div>`;
   if(d<-0.5)return `<div class="chase warn">Harga kini ${p}, sudah dekat SL. Berisiko untuk masuk sekarang.</div>`;
-  return `<div class="chase ok">Harga kini ${p}, masih dekat entry.</div>`;
+  if(Math.abs(d)>0.25)return `<div class="chase warn">Harga kini ${p}, di luar zon masuk. Tunggu harga kembali ke zon.</div>`;
+  return `<div class="chase ok">Harga kini ${p}, dalam zon masuk.</div>`;
 }
 function bigSpark(m){
   const c=m.c||[];if(c.length<2)return '';
@@ -462,13 +469,17 @@ function renderPairHero(){
 function sigItem(s){
   const r=active(s)?floatR(s):net(s);
   return `<button class="sig" data-id="${esc(s.id)}">
-    <div class="row between"><div class="row"><span class="tfb">${esc(s.tf)}</span><span class="side ${s.side}">${s.side}</span><span class="zone">${px(s.entry,s.entry)}</span></div><span class="s" style="font-size:12.5px;color:var(--muted)">${when(s.time)}</span></div>
+    <div class="row between"><div class="row"><span class="tfb">${esc(s.tf)}</span><span class="side ${s.side}">${s.side}</span><span class="zone">${px(zone(s)[0],s.entry)}–${px(zone(s)[1],s.entry)}</span></div><span class="s" style="font-size:12.5px;color:var(--muted)">${when(s.time)}</span></div>
     <div class="row between"><span class="status ${kind(s)}">${statusText(s)}</span><span class="rval ${r==null?'':r>=0?'pos':'neg'}">${r==null?'':money(r)+(active(s)?' terapung':'')}</span></div>
+    <div class="row tps">${tpLine(s)}</div>
     ${active(s)?`<div class="row mono" style="font-size:12.5px;color:var(--muted)">SL ${px(s.sl,s.entry)} · Keluar (EMA50) ${s.exitLevel==null?'–':px(s.exitLevel,s.entry)}</div>${chase(s)}`:''}
   </button>`;
 }
 function renderPairBody(){
   if(!pairSym||!D)return;const m=mk(pairSym),el=$('#pairBody');if(!m)return;
+  if(pairTab==='live'){if(el.dataset.live===pairSym)return;el.dataset.live=pairSym;const tv=(INFO[pairSym]||[])[3]||pairSym,light=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches;
+    el.innerHTML=`<div class="tv"><iframe title="Carta live ${nm(pairSym)}" src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tv)}&interval=15&theme=${light?'light':'dark'}&style=1&timezone=Asia%2FKuala_Lumpur&locale=en&hide_side_toolbar=1&withdateranges=1&saveimage=0&hideideas=1"></iframe></div><p class="sub" style="font-size:13px">Candle masa nyata (M15) oleh TradingView. Tukar timeframe pada bar atas carta.</p>`;return}
+  delete el.dataset.live;
   const S=sigs(pairSym).sort((a,b)=>active(a)!==active(b)?(active(a)?-1:1):new Date(b.time)-new Date(a.time));
   const closed=S.filter(s=>!active(s)),wins=closed.filter(s=>net(s)>0),tot=closed.reduce((a,s)=>a+net(s),0);
   if(pairTab==='setup'){
@@ -541,12 +552,12 @@ function drawChart(cv,m,s){
   cv.width=W*d;cv.height=H*d;const g=cv.getContext('2d');g.scale(d,d);
   const css=getComputedStyle(document.documentElement),col=n=>css.getPropertyValue(n).trim();
   const pts=(m&&m.c)||[],times=(m&&m.t)||[],ref=s.entry;
-  const lv=[s.sl,s.entry].concat(exitPx(s)!=null?[exitPx(s)]:[]);const all=pts.concat(lv);if(!all.length)return;
+  const lv=[s.sl,s.entry].concat(tps(s)).concat(exitPx(s)!=null?[exitPx(s)]:[]);const all=pts.concat(lv);if(!all.length)return;
   let lo=Math.min(...all),hi=Math.max(...all);const pad=(hi-lo)*.08||ref*.001;lo-=pad;hi+=pad;
   const L=10,Rm=104,T=12,B=14,n=Math.max(pts.length-1,1),x=i=>L+i/n*(W-L-Rm),y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
   g.font='11px "JetBrains Mono", monospace';g.textBaseline='middle';
   const line=(v,c,label,dash)=>{g.strokeStyle=c;g.lineWidth=1;g.setLineDash(dash?[4,4]:[]);g.beginPath();g.moveTo(L,y(v));g.lineTo(W-Rm+4,y(v));g.stroke();g.setLineDash([]);g.fillStyle=c;g.fillText(label+' '+px(v,ref),W-Rm+8,y(v))};
-  line(s.sl,col('--sell'),'SL',true);const ex=exitPx(s);if(ex!=null)line(ex,col('--buy'),active(s)?'EMA50':'KELUAR',true);line(s.entry,col('--muted'),'EN',false);
+  line(s.sl,col('--sell'),'SL',true);tps(s).forEach((t,i)=>line(t,col('--buy'),'TP'+(i+1),true));const ex=exitPx(s);if(ex!=null)line(ex,col('--accent'),active(s)?'EMA50':'KELUAR',true);line(s.entry,col('--muted'),'EN',false);
   if(pts.length>1){
     const grad=g.createLinearGradient(0,T,0,H);grad.addColorStop(0,col('--accent-soft'));grad.addColorStop(1,'rgba(0,0,0,0)');
     g.beginPath();pts.forEach((v,i)=>i?g.lineTo(x(i),y(v)):g.moveTo(x(i),y(v)));g.lineTo(x(pts.length-1),H-B);g.lineTo(x(0),H-B);g.closePath();g.fillStyle=grad;g.fill();
@@ -559,11 +570,11 @@ function drawChart(cv,m,s){
 function closeSheet(){openId=null;$('#overlay').hidden=true;$('#overlay').innerHTML='';document.body.style.overflow=''}
 $('#overlay').addEventListener('click',e=>{if(e.target.id==='overlay'||e.target.closest('[data-close]'))closeSheet()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#overlay').hidden)closeSheet()});
-function copyText(s){return `VK Signal\n${s.sym} ${s.side} (${s.tf})\nEntry: ${px(s.entry,s.entry)}\nSL: ${px(s.sl,s.entry)}\nKeluar: bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} EMA50${s.exitLevel!=null?' (sekarang '+px(s.exitLevel,s.entry)+')':''}\nBukan nasihat kewangan.`}
+function copyText(s){return `VK Signal\n${s.sym} ${s.side} (${s.tf})\nEntry: ${px(s.entry,s.entry)}\nZon masuk: ${px(zone(s)[0],s.entry)} – ${px(zone(s)[1],s.entry)}\nSL: ${px(s.sl,s.entry)}\n${tps(s).map((t,i)=>'TP'+(i+1)+': '+px(t,s.entry)).join('\n')}\nKeluar: bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} EMA50${s.exitLevel!=null?' (sekarang '+px(s.exitLevel,s.entry)+')':''}\nBukan nasihat kewangan.`}
 function openSignal(id){
   const s=D&&D.signals.find(x=>x.id===id);if(!s)return closeSheet();openId=id;
   const m=mk(s.sym),r=active(s)?floatR(s):net(s),ex=exitPx(s);
-  const rows=[['Entry',s.entry,'—','—'],['Stop loss',s.sl,move(s,s.sl-s.entry),'−$10.00']];
+  const z=zone(s),rows=[['Entry',s.entry,'—','—'],['Stop loss',s.sl,move(s,s.sl-s.entry),'−$10.00']].concat(tps(s).map((t,i)=>['TP'+(i+1)+(s.tpHit!=null&&i<s.tpHit?' ✓':''),t,move(s,t-s.entry),'+$'+(10*(i+1)).toFixed(2)]));
   if(ex!=null)rows.push([active(s)?'Keluar sekarang (EMA50)':'Harga keluar',ex,move(s,ex-s.entry),money((ex-s.entry)*dirOf(s)/risk(s))]);
   const o=$('#overlay');o.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">
     <div class="sheet-head"><div><div class="row"><h2 style="font-size:22px">${nm(s.sym)}</h2><span class="side ${s.side}">${s.side}</span><span class="status ${kind(s)}">${statusText(s)}</span></div>
@@ -571,10 +582,11 @@ function openSignal(id){
       <button class="icon-btn" data-close aria-label="Tutup">✕</button></div>
     <div class="chart-box"><canvas id="cv" aria-label="Carta harga ${esc(s.sym)} dengan paras signal"></canvas></div>
     <p class="cap">Harga penutup H1 sebenar, 5 hari terakhir${m&&m.t.indexOf(s.time)<0?'. Signal ini lebih lama daripada tempoh carta.':'. Titik berwarna = entry.'}</p>
+    <div class="box"><div class="k">Zon masuk ${s.side}</div><div class="p">${px(z[0],s.entry)} – ${px(z[1],s.entry)}</div></div>
     <div class="scroll-x"><table class="dtable"><thead><tr><th>Paras</th><th class="num">Harga</th><th class="num">Jarak</th><th class="num">Risiko $10</th></tr></thead>
       <tbody>${rows.map(([a,b,c,d])=>`<tr><td>${a}</td><td class="num">${px(b,s.entry)}</td><td class="num">${c}</td><td class="num">${d}</td></tr>`).join('')}</tbody></table></div>
     ${chase(s)}
-    <p class="note">Masuk hanya kalau harga masih dekat entry. Letak SL di paras di atas. Tiada TP tetap: tutup trade bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} garis EMA50.</p>
+    <p class="note">Masuk hanya kalau harga dalam zon masuk. Letak SL di paras di atas. TP1–TP3 ialah penanda aras untuk ambil sebahagian untung. Rekod VK dikira dengan menutup trade bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} garis EMA50.</p>
     <div class="row between"><span class="rval ${r==null?'':r>=0?'pos':'neg'}" style="font-size:17px">${r==null?'':money(r)+(active(s)?' terapung':' keputusan')}</span>
       <button class="btn primary" id="copyBtn">Salin signal</button></div></div>`;
   o.hidden=false;document.body.style.overflow='hidden';
