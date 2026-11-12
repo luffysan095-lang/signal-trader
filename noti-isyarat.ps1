@@ -248,6 +248,8 @@ function Update-VK($sym, $B) {
         signalTime = [string]$B.t[$k]; time = To-Iso $B.t[$k]
         entry = Round6 $en; sl = Round6 ($en - $d * $risk); R = Round6 $risk; costR = Round6 ((Get-VkCost $key $en) / $risk)
         status = 'BERJALAN'; pnl = 0.0; exitTime = $null; exitRaw = $null; exitPrice = $null; exitLevel = $null
+        tp = @((Round6 ($en + $d * $risk)), (Round6 ($en + $d * 2 * $risk)), (Round6 ($en + $d * 3 * $risk)))
+        zone = @((Round6 ($en - 0.25 * $risk)), (Round6 ($en + 0.25 * $risk))); tpHit = 0
       }
       $vk[$id] = $s
       Write-Host "  VK BARU  $key $($s.side) $($B.t[$k])"
@@ -287,14 +289,27 @@ function Test-Break($B, $X, $k) {
 # Jalankan trade dari candle selepas signal hingga candle terakhir yang sudah tutup
 function Step-VK($B, $X, $s, $k, $lastClosed) {
   $d = if ($s.side -eq 'BUY') { 1 } else { -1 }
+  # TP1/TP2/TP3 = 1x, 2x, 3x jarak SL. Ia penanda aras sahaja: rekod VK tetap dikira dengan keluar ikut EMA50,
+  # kerana dalam ujian 2 tahun (backtest-tp.ps1) semua cara tutup di TP memberi hasil lebih rendah.
+  # Zon masuk = entry +/- 0.25 x jarak SL. Signal lama (sebelum medan ini wujud) dilengkapkan di sini.
+  if (-not $s.PSObject.Properties['tp']) {
+    $s | Add-Member -NotePropertyName tp -NotePropertyValue @((Round6 ($s.entry + $d * $s.R)), (Round6 ($s.entry + $d * 2 * $s.R)), (Round6 ($s.entry + $d * 3 * $s.R))) -Force
+    $s | Add-Member -NotePropertyName zone -NotePropertyValue @((Round6 ($s.entry - 0.25 * $s.R)), (Round6 ($s.entry + 0.25 * $s.R))) -Force
+    $s | Add-Member -NotePropertyName tpHit -NotePropertyValue 0 -Force
+  }
+  $hit = 0
   for ($j = $k + 1; $j -le $lastClosed; $j++) {
     if (($d -eq 1 -and $B.l[$j] -le $s.sl) -or ($d -eq -1 -and $B.h[$j] -ge $s.sl)) {
+      $s.tpHit = $hit
       $s.status = 'SL kena'; $s.pnl = -1.0; $s.exitPrice = $s.sl; $s.exitRaw = [string]$B.t[$j]; $s.exitTime = To-Iso $B.t[$j]; $s.exitLevel = $null; return
     }
+    while ($hit -lt 3 -and (($d -eq 1 -and $B.h[$j] -ge $s.tp[$hit]) -or ($d -eq -1 -and $B.l[$j] -le $s.tp[$hit]))) { $hit++ }
     if ($d * ($B.c[$j] - $X.e50[$j]) -lt 0) {
+      $s.tpHit = $hit
       $s.status = 'KELUAR'; $s.pnl = Round6 (($B.c[$j] - $s.entry) * $d / $s.R); $s.exitPrice = Round6 $B.c[$j]; $s.exitRaw = [string]$B.t[$j]; $s.exitTime = To-Iso $B.t[$j]; $s.exitLevel = $null; return
     }
   }
+  $s.tpHit = $hit
   $s.exitLevel = Round6 $X.e50[$lastClosed]
 }
 function Save-VK($symbols) {
