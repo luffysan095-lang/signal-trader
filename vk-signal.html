@@ -136,6 +136,7 @@ h2{font-size:17px;font-weight:600}
 .sig:last-child{border-bottom:0}
 .sig:hover{background:var(--surface-2)}
 .sig .zone{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:15px}
+@media (max-width:560px){.seg button{font-size:12.5px;padding:8px 2px}}
 .tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;font-family:var(--font-mono);font-size:12.5px}
 .tiers span{background:var(--surface);border-radius:7px;padding:5px 7px;min-width:0}
 .tiers b{display:block;font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:600}
@@ -245,7 +246,7 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     <div class="chips" id="pairChips"></div>
     <div class="panel" id="pairHero"></div>
     <div class="seg" id="pairSeg" role="group" aria-label="Bahagian">
-      <button data-t="setup">Setup</button><button data-t="live">Carta live</button><button data-t="perf">Prestasi</button><button data-t="ana">Analisis</button>
+      <button data-t="setup">Setup</button><button data-t="live">Carta</button><button data-t="radar">Radar</button><button data-t="perf">Prestasi</button><button data-t="ana">Analisis</button>
     </div>
     <div id="pairBody"></div>
   </section>
@@ -484,6 +485,8 @@ function renderPairBody(){
   if(pairTab==='live'){if(el.dataset.live===pairSym)return;el.dataset.live=pairSym;const tv=(INFO[pairSym]||[])[3]||pairSym,light=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches;
     el.innerHTML=`<div class="tv"><iframe title="Carta live ${nm(pairSym)}" src="https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(tv)}&interval=15&theme=${light?'light':'dark'}&style=1&timezone=Asia%2FKuala_Lumpur&locale=en&hide_side_toolbar=1&withdateranges=1&saveimage=0&hideideas=1"></iframe></div><p class="sub" style="font-size:13px">Candle masa nyata (M15) oleh TradingView. Tukar timeframe pada bar atas carta.</p>`;return}
   delete el.dataset.live;
+  if(pairTab==='radar'){if(el.dataset.radar!==pairSym){el.dataset.radar='';el.innerHTML=`<div class='empty'>Memuatkan radar…</div>`}loadRadar(pairSym);return}
+  delete el.dataset.radar;
   const S=sigs(pairSym).sort((a,b)=>active(a)!==active(b)?(active(a)?-1:1):new Date(b.time)-new Date(a.time));
   const closed=S.filter(s=>!active(s)),wins=closed.filter(s=>net(s)>0),tot=closed.reduce((a,s)=>a+net(s),0);
   if(pairTab==='setup'){
@@ -518,6 +521,56 @@ function renderPairBody(){
   }
 }
 document.querySelectorAll('#pairSeg button').forEach(b=>b.onclick=()=>{pairTab=b.dataset.t;renderPairHero();renderPairBody()});
+
+/* ---------- radar SMC: struktur dikira terus daripada candle M15 (Binance), bukan signal ---------- */
+const BN={XAUUSD:'PAXGUSDT',BTCUSD:'BTCUSDT',ETHUSD:'ETHUSDT',SOLUSD:'SOLUSDT',XRPUSD:'XRPUSDT'};
+function emaArr(a,p){const o=new Array(a.length).fill(null);if(a.length<p)return o;let s=0;for(let i=0;i<p;i++)s+=a[i];let v=s/p;o[p-1]=v;const k=2/(p+1);for(let i=p;i<a.length;i++){v=a[i]*k+v*(1-k);o[i]=v}return o}
+function smc(K){
+  const n=K.length,c=K.map(x=>x.c),e2=emaArr(c,200),e8=emaArr(c,800),z=n-1;
+  const trend=e8[z]==null?'TIADA':(e2[z]>e8[z]&&c[z]>e8[z])?'NAIK':(e2[z]<e8[z]&&c[z]<e8[z])?'TURUN':'MENDATAR';
+  const curHi=[],curLo=[];let lh=null,ll=null;
+  for(let j=0;j<n;j++){const p=j-3;if(p>=3){let H=true,L=true;for(let q=p-3;q<=p+3;q++){if(K[q].h>K[p].h)H=false;if(K[q].l<K[p].l)L=false}if(H)lh=K[p].h;if(L)ll=K[p].l}curHi[j]=lh;curLo[j]=ll}
+  let sw=null;
+  for(let j=n-1;j>=Math.max(8,n-96)&&!sw;j--){const pl=curLo[j-1],ph=curHi[j-1];if(pl==null||ph==null)continue;
+    if(K[j].l<pl&&K[j].c>pl&&ph>K[j].c)sw={dir:1,idx:j,level:pl,ext:K[j].l,ref:ph,t:K[j].t};
+    else if(K[j].h>ph&&K[j].c<ph&&pl<K[j].c)sw={dir:-1,idx:j,level:ph,ext:K[j].h,ref:pl,t:K[j].t}}
+  if(sw){sw.state='tunggu';sw.left=Math.max(0,12-(n-1-sw.idx));for(let j=sw.idx+1;j<n&&j<=sw.idx+12;j++){if(sw.dir*(K[j].c-sw.ext)<0){sw.state='batal';break}if(sw.dir*(K[j].c-sw.ref)>0){sw.state='choch';sw.ct=K[j].t;break}}if(sw.state==='tunggu'&&sw.left===0)sw.state='luput'}
+  const fv=[];
+  for(let k=n-1;k>=Math.max(2,n-200)&&fv.length<4;k--){
+    if(K[k].l>K[k-2].h){let ok=true;for(let j=k+1;j<n;j++)if(K[j].l<=K[k-2].h){ok=false;break}if(ok)fv.push({dir:1,lo:K[k-2].h,hi:K[k].l,t:K[k].t})}
+    else if(K[k].h<K[k-2].l){let ok=true;for(let j=k+1;j<n;j++)if(K[j].h>=K[k-2].l){ok=false;break}if(ok)fv.push({dir:-1,lo:K[k].h,hi:K[k-2].l,t:K[k].t})}}
+  return {trend,hi:lh,lo:ll,sw,fv,last:K[n-1]}
+}
+async function loadRadar(sym){
+  const el=$('#pairBody'),pair=BN[sym];
+  if(!pair){el.innerHTML=`<div class='empty'>Radar tiada untuk pasaran ini.</div>`;return}
+  try{const r=await fetch('https://data-api.binance.vision/api/v3/klines?symbol='+pair+'&interval=15m&limit=1000');if(!r.ok)throw new Error(r.status);const a=await r.json();
+    const K=a.slice(0,-1).map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
+    if(pairTab!=='radar'||pairSym!==sym)return;renderRadar(sym,smc(K))}
+  catch(e){if(pairTab==='radar'&&pairSym===sym&&!el.dataset.radar)el.innerHTML=`<div class='empty'><b>Radar tak dapat dimuatkan</b>Semak sambungan internet, kemudian buka tab ini semula.</div>`}
+}
+function hm(ms){return new Date(ms).toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit',hour12:false})}
+function renderRadar(sym,X){
+  const el=$('#pairBody'),ref=X.last.c,f=v=>px(v,ref),d=new Date(),h=d.getHours(),we=d.getDay()===0||d.getDay()===6;
+  const sesi=sym==='XAUUSD'?(!we&&h>=15&&h<23):(we||h>=20||h<3),s=X.sw;let sweep;
+  if(!s)sweep='Tiada sweep dalam 24 jam terakhir.';
+  else{const sisi=s.dir===1?'bawah':'atas',lawan=s.dir===1?'di atas':'di bawah',arah=s.dir===1?'naik':'turun';
+    sweep=`<b>Sweep ${sisi}</b> pada ${hm(s.t)} (${when(new Date(s.t).toISOString())}): harga tembus swing ${s.dir===1?'low':'high'} ${f(s.level)} hingga ${f(s.ext)}, kemudian tutup semula ${s.dir===1?'di atasnya':'di bawahnya'}.<br>`;
+    sweep+=s.state==='choch'?`<b class='${s.dir===1?'pos':'neg'}'>CHoCH disahkan</b> pada ${hm(s.ct)}: candle tutup ${lawan} ${f(s.ref)}. Ini corak pembalikan ${arah}.`:s.state==='tunggu'?`Menunggu CHoCH: perlu candle M15 tutup ${lawan} ${f(s.ref)} (baki ${s.left} candle).`:s.state==='batal'?'Harga kemudian tutup melepasi hujung sweep, jadi corak ini batal.':'Tiada CHoCH dalam 12 candle, jadi corak ini luput.';
+    if(s.state==='choch')sweep+=((s.dir===1&&X.trend==='NAIK')||(s.dir===-1&&X.trend==='TURUN'))?' Ia searah trend M15.':' Ia melawan trend M15, jadi lebih berisiko.'}
+  el.dataset.radar=sym;
+  el.innerHTML=`<div class='panel'><div class='row between'><h2>Radar SMC · M15</h2><span class='live on'>${hm(Date.now())}</span></div>
+    <table class='dtable'><tbody>
+      <tr><td>Trend (EMA200 vs EMA800)</td><td class='num'><span class='trend ${X.trend}'>${X.trend==='TIADA'?'–':X.trend}</span></td></tr>
+      <tr><td>Swing high terakhir</td><td class='num'>${X.hi==null?'–':f(X.hi)}</td></tr>
+      <tr><td>Swing low terakhir</td><td class='num'>${X.lo==null?'–':f(X.lo)}</td></tr>
+      <tr><td>Harga tutup M15 terakhir</td><td class='num'>${f(ref)}</td></tr>
+      <tr><td>Sesi aktif</td><td class='num'>${sesi?'Ya':'Tidak'}</td></tr>
+    </tbody></table>
+    <div><div class='k' style='margin-bottom:6px'>Liquidity sweep dan CHoCH</div><p style='margin:0'>${sweep}</p></div>
+    <div><div class='k' style='margin-bottom:6px'>FVG yang belum diisi</div>${X.fv.length?`<div class='list'>${X.fv.map(g=>`<div class='item'><span class='side ${g.dir===1?'BUY':'SELL'}'>${g.dir===1?'NAIK':'TURUN'}</span><span class='grow mono'>${f(g.lo)} – ${f(g.hi)}</span><span class='s'>${when(new Date(g.t).toISOString())}</span></div>`).join('')}</div>`:`<p class='sub' style='margin:0'>Tiada FVG terbuka dalam 200 candle terakhir.</p>`}</div>
+    <p class='note'><b>Pemerhatian, bukan signal.</b> Radar mengira struktur ini terus daripada candle M15, tanpa tekaan daripada gambar. Dalam ujian setahun, masuk mengikut corak sweep + CHoCH tidak konsisten untung (Bitcoin untung sedikit; Ethereum, Solana, XRP dan emas kosong atau rugi). Guna radar untuk belajar membaca struktur, bukan sebagai arahan masuk.${sym==='XAUUSD'?' Data radar emas diambil daripada PAXG (token emas di Binance); harganya hampir sama dengan emas spot tetapi tidak serupa tepat.':''}</p></div>`;
+}
 
 /* ---------- carta ---------- */
 function renderChart(force){
@@ -624,6 +677,7 @@ function render(){renderLive();renderTape();renderClock();renderHomeData();rende
 window.addEventListener('hashchange',route);
 route();render();load();startLive();
 setInterval(load,2*60*1000);
+setInterval(()=>{if(pairTab==='radar'&&!$('#v-pair').hidden&&!document.hidden)loadRadar(pairSym)},60*1000);
 setInterval(()=>{renderLive();renderClock()},30*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
 })();
