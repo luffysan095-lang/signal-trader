@@ -136,6 +136,9 @@ h2{font-size:17px;font-weight:600}
 .sig:last-child{border-bottom:0}
 .sig:hover{background:var(--surface-2)}
 .sig .zone{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:15px}
+.tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;font-family:var(--font-mono);font-size:12.5px}
+.tiers span{background:var(--surface);border-radius:7px;padding:5px 7px;min-width:0}
+.tiers b{display:block;font-family:var(--font-body);font-size:11px;color:var(--muted);font-weight:600}
 .tps{gap:6px}
 .tp{font-family:var(--font-mono);font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
 .tp.hit{background:var(--buy-soft);color:var(--buy)}
@@ -270,7 +273,8 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     <div class="panel"><h2>2. Cara masuk</h2>
       <ol><li>Buka signal dan lihat <b>zon masuk</b>. Masuk hanya kalau harga kini berada dalam zon itu.</li>
       <li>Letak <b>Stop Loss</b> tepat pada paras SL yang ditunjukkan.</li>
-      <li>Pilih saiz lot supaya rugi kalau kena SL ialah jumlah kecil yang sama setiap kali, contohnya $10.</li></ol></div>
+      <li>Pilih saiz lot supaya rugi kalau kena SL ialah jumlah kecil yang sama setiap kali, contohnya $10.</li>
+      <li><b>Kalau terlepas signal:</b> jangan kejar. Masuk hanya kalau harga kembali ke zon masuk. Dalam ujian, masuk lewat semasa harga berundur tidak menguntungkan.</li></ol></div>
     <div class="panel"><h2>3. Bila nak keluar</h2>
       <p style="margin:0">Setiap signal ada <b>TP1, TP2 dan TP3</b> (1×, 2× dan 3× jarak SL). Anda boleh ambil sebahagian untung di situ. Tetapi dalam ujian 2 tahun, menutup di TP memberi hasil jauh lebih rendah (kira-kira +$630 berbanding +$2,760) daripada membiarkan trade berjalan sehingga candle H1 tutup melintasi garis EMA50. Rekod VK dikira dengan cara EMA50.</p></div>
     <div class="panel"><h2>4. Apa yang dijangka</h2>
@@ -315,7 +319,7 @@ function risk(s){return s.R||Math.abs(s.entry-s.sl)||1e-9}
 function active(s){return s.status==='BERJALAN'}
 function net(s){return s.pnl-(s.costR||0)}
 function kind(s){return active(s)?'active':net(s)>0?'win':'loss'}
-function statusText(s){if(active(s))return 'Sedang berjalan';if(s.status==='SL kena')return 'Kena SL';return net(s)>0?'Keluar untung':'Keluar rugi kecil'}
+function statusText(s){if(active(s))return s.tpHit>=3?'TP3 ✓ selesai · baki berjalan':'Sedang berjalan';if(s.status==='SL kena')return 'Kena SL';return net(s)>0?'Keluar untung':'Keluar rugi kecil'}
 function mk(sym){return D&&D.market.find(m=>m.sym===sym)}
 function floatR(s){const m=mk(s.sym);if(!m)return null;return (m.price-s.entry)*dirOf(s)/risk(s)-(s.costR||0)}
 function move(s,diff){const a=Math.abs(diff);if(s.asset==='metal')return Math.round(a/(/XAU/.test(s.sym)?0.1:0.01))+' pip';return '$'+px(a,s.entry)}
@@ -575,6 +579,7 @@ function openSignal(id){
   const s=D&&D.signals.find(x=>x.id===id);if(!s)return closeSheet();openId=id;
   const m=mk(s.sym),r=active(s)?floatR(s):net(s),ex=exitPx(s);
   const z=zone(s),rows=[['Entry',s.entry,'—','—'],['Stop loss',s.sl,move(s,s.sl-s.entry),'−$10.00']].concat(tps(s).map((t,i)=>['TP'+(i+1)+(s.tpHit!=null&&i<s.tpHit?' ✓':''),t,move(s,t-s.entry),'+$'+(10*(i+1)).toFixed(2)]));
+  [[5,57],[8,28]].forEach(([k,pc])=>{const t=s.entry+dirOf(s)*k*risk(s),got=m&&(m.price-t)*dirOf(s)>=0;rows.push(['Sasaran lanjut '+k+'× ('+pc+'%)'+(active(s)&&got?' ✓':''),t,move(s,k*risk(s)),'+$'+(10*k).toFixed(2)])});
   if(ex!=null)rows.push([active(s)?'Keluar sekarang (EMA50)':'Harga keluar',ex,move(s,ex-s.entry),money((ex-s.entry)*dirOf(s)/risk(s))]);
   const o=$('#overlay');o.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">
     <div class="sheet-head"><div><div class="row"><h2 style="font-size:22px">${nm(s.sym)}</h2><span class="side ${s.side}">${s.side}</span><span class="status ${kind(s)}">${statusText(s)}</span></div>
@@ -582,9 +587,12 @@ function openSignal(id){
       <button class="icon-btn" data-close aria-label="Tutup">✕</button></div>
     <div class="chart-box"><canvas id="cv" aria-label="Carta harga ${esc(s.sym)} dengan paras signal"></canvas></div>
     <p class="cap">Harga penutup H1 sebenar, 5 hari terakhir${m&&m.t.indexOf(s.time)<0?'. Signal ini lebih lama daripada tempoh carta.':'. Titik berwarna = entry.'}</p>
-    <div class="box"><div class="k">Zon masuk ${s.side}</div><div class="p">${px(z[0],s.entry)} – ${px(z[1],s.entry)}</div></div>
+    <div class="box"><div class="k">Zon masuk ${s.side}</div><div class="p">${px(z[0],s.entry)} – ${px(z[1],s.entry)}</div>
+      <div class="tiers"><span><b>Berisiko</b>${px(s.side==='BUY'?z[1]:z[0],s.entry)}</span><span><b>Sederhana</b>${px(s.entry,s.entry)}</span><span><b>Kuat</b>${px(s.side==='BUY'?z[0]:z[1],s.entry)}</span></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Kuat = harga terbaik dalam zon (SL lebih dekat, tapi harga mungkin tak sampai). Berisiko = harga paling jauh dalam zon.</div></div>
     <div class="scroll-x"><table class="dtable"><thead><tr><th>Paras</th><th class="num">Harga</th><th class="num">Jarak</th><th class="num">Risiko $10</th></tr></thead>
       <tbody>${rows.map(([a,b,c,d])=>`<tr><td>${a}</td><td class="num">${px(b,s.entry)}</td><td class="num">${c}</td><td class="num">${d}</td></tr>`).join('')}</tbody></table></div>
+    <p class="cap" style="margin:0">Peratus pada sasaran lanjut = berapa kerap trade yang sudah kena TP3 sampai ke paras itu dalam ujian 2 tahun. Ia anggaran daripada sejarah, bukan ramalan.</p>
     ${chase(s)}
     <p class="note">Masuk hanya kalau harga dalam zon masuk. Letak SL di paras di atas. TP1–TP3 ialah penanda aras untuk ambil sebahagian untung. Rekod VK dikira dengan menutup trade bila candle H1 tutup ${s.side==='BUY'?'di bawah':'di atas'} garis EMA50.</p>
     <div class="row between"><span class="rval ${r==null?'':r>=0?'pos':'neg'}" style="font-size:17px">${r==null?'':money(r)+(active(s)?' terapung':' keputusan')}</span>
