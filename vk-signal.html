@@ -228,6 +228,7 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     <div class="strip" id="strip"></div>
     <div class="panel"><div class="row between"><h2>Signal sedang berjalan</h2><a href="#signals" style="font-size:13px">Semua pasaran ›</a></div><div class="list" id="homeRun"></div></div>
     <div class="tiles">
+      <a class='tile' href='#scalp' style='grid-column:1/-1'><b>Scalping M15 (ujian)</b><span>Bitcoin dan emas · TP1, TP2, TP3</span></a>
       <a class="tile" href="#guide"><b>Cara guna signal</b><span>Entry, SL dan bila nak keluar</span></a>
       <button class="tile" id="shareBtn"><b>Kongsi VK Signal</b><span id="shareTxt">Salin pautan untuk kawan</span></button>
     </div>
@@ -239,6 +240,7 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
   <section id="v-signals" class="wrap stack" hidden>
     <div><h1>Pasaran</h1><p class="sub">Pilih pasaran untuk lihat signal, prestasi dan analisisnya.</p></div>
     <div class="panel" style="padding:6px 12px"><div class="list" id="mkList"></div></div>
+    <a class='tile' href='#scalp'><b>Scalping M15 (ujian)</b><span id='scTile'>Bitcoin dan emas · sweep + CHoCH · TP1, TP2, TP3</span></a>
   </section>
 
   <!-- PASANGAN -->
@@ -249,6 +251,14 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
       <button data-t="setup">Setup</button><button data-t="live">Carta</button><button data-t="radar">Radar</button><button data-t="perf">Prestasi</button><button data-t="ana">Analisis</button>
     </div>
     <div id="pairBody"></div>
+  </section>
+
+  <!-- SCALPING -->
+  <section id='v-scalp' class='wrap stack' hidden>
+    <div><h1>Scalping M15 <span class='pill'>ujian</span></h1><p class='sub'>Bitcoin dan emas. Signal keluar bila harga menyapu swing (liquidity sweep) lalu candle M15 tutup melepasi swing bertentangan (CHoCH), searah trend. SL di hujung sweep. TP1, TP2 dan TP3 ialah 1×, 2× dan 3× jarak SL: 1/3 ditutup di setiap TP, SL dialih ke entry selepas TP1 dan ke TP1 selepas TP2.</p></div>
+    <p class='banner'>Fasa ujian. Dalam ujian setahun dengan peraturan ini, Bitcoin untung sedikit (kira-kira +$95 atas 104 trade, risiko $10) dan emas rugi (kira-kira −$133 atas 91 trade). Cuba di akaun demo dahulu.</p>
+    <div id='scBody' class='stack'></div>
+    <p class='note'>Signal dikira dalam app daripada candle M15 Binance (emas guna PAXG, token emas; harganya hampir sama dengan emas spot). Rekod meliputi kira-kira 3 minggu terakhir dan dikira semula daripada candle sebenar setiap kali app dibuka.</p>
   </section>
 
   <!-- CARTA -->
@@ -264,6 +274,7 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     <div class="strip" id="statStrip"></div>
     <div class="panel"><h2>Keputusan mingguan</h2><div class="bars" id="bars"></div></div>
     <div class="panel"><h2>Sejarah signal</h2><div class="list" id="histList"></div></div>
+    <div class='panel' id='scStats'></div>
   </section>
 
   <!-- PANDUAN -->
@@ -346,7 +357,7 @@ function startLive(){
   liveWs.onclose=()=>{liveOn=false;liveDirty=true;setTimeout(startLive,8000)};
   liveWs.onerror=()=>{try{liveWs.close()}catch(x){}};
 }
-setInterval(()=>{if(!liveDirty||!D)return;liveDirty=false;applyLive();renderLive();renderTape();renderHomeData();renderMarkets();renderPairHero();if(pairTab==='setup')renderPairBody()},2000);
+setInterval(()=>{if(!liveDirty||!D)return;liveDirty=false;applyLive();renderLive();renderTape();renderHomeData();renderMarkets();renderPairHero();if(pairTab==='setup')renderPairBody();if(SC.ok&&!$('#v-scalp').hidden)renderScalp()},2000);
 
 async function load(){
   try{
@@ -572,6 +583,84 @@ function renderRadar(sym,X){
     <p class='note'><b>Pemerhatian, bukan signal.</b> Radar mengira struktur ini terus daripada candle M15, tanpa tekaan daripada gambar. Dalam ujian setahun, masuk mengikut corak sweep + CHoCH tidak konsisten untung (Bitcoin untung sedikit; Ethereum, Solana, XRP dan emas kosong atau rugi). Guna radar untuk belajar membaca struktur, bukan sebagai arahan masuk.${sym==='XAUUSD'?' Data radar emas diambil daripada PAXG (token emas di Binance); harganya hampir sama dengan emas spot tetapi tidak serupa tepat.':''}</p></div>`;
 }
 
+/* ---------- scalping M15 (ujian): sweep + CHoCH searah trend, dikira dalam pelayar daripada candle Binance ---------- */
+const SCM={BTCUSD:['BTCUSDT',0.0003,true],XAUUSD:['PAXGUSDT',0.2,false]},SCK={},SC={list:[],ok:false,err:false,days:0,px:{}};
+function atrArr(K,p){const n=K.length,o=new Array(n).fill(null);if(n<=p)return o;const tr=K.map((x,i)=>i?Math.max(x.h-x.l,Math.abs(x.h-K[i-1].c),Math.abs(x.l-K[i-1].c)):x.h-x.l);let a=0;for(let i=1;i<=p;i++)a+=tr[i];a/=p;o[p]=a;for(let i=p+1;i<n;i++){a=(a*(p-1)+tr[i])/p;o[i]=a}return o}
+function scalpRun(sym,K){
+  const n=K.length,c=K.map(x=>x.c),e2=emaArr(c,200),e8=emaArr(c,800),a=atrArr(K,14),curHi=[],curLo=[],out=[],cfg=SCM[sym];let lh=null,ll=null;
+  for(let j=0;j<n;j++){const p=j-3;if(p>=3){let H=true,L=true;for(let q=p-3;q<=p+3;q++){if(K[q].h>K[p].h)H=false;if(K[q].l<K[p].l)L=false}if(H)lh=K[p].h;if(L)ll=K[p].l}curHi[j]=lh;curLo[j]=ll}
+  let i=810,aktif=false,swIdx=0,swDir=0,ext=0,ref=0;
+  while(i<n){
+    const d=e8[i]==null?0:(e2[i]>e8[i]&&c[i]>e8[i])?1:(e2[i]<e8[i]&&c[i]<e8[i])?-1:0;
+    if(aktif&&(d!==swDir||i-swIdx>12))aktif=false;
+    if(!d){i++;continue}
+    if(!aktif){const pl=curLo[i-1],ph=curHi[i-1];
+      if(pl!=null&&ph!=null){if(d===1&&K[i].l<pl&&c[i]>pl&&ph>c[i]){aktif=true;swIdx=i;swDir=1;ext=K[i].l;ref=ph}else if(d===-1&&K[i].h>ph&&c[i]<ph&&pl<c[i]){aktif=true;swIdx=i;swDir=-1;ext=K[i].h;ref=pl}}
+      i++;continue}
+    if(d===1){if(K[i].l<ext)ext=K[i].l}else{if(K[i].h>ext)ext=K[i].h}
+    if(!(d===1?c[i]>ref:c[i]<ref)){i++;continue}
+    aktif=false;
+    const en=c[i],stop=ext-d*0.1*a[i],rk=Math.abs(en-stop);
+    if(d*(en-stop)<=0||rk<0.3*a[i]||rk>3*a[i]){i++;continue}
+    let stg=0,cur=stop,pnl=0,ex=-1;
+    for(let j=i+1;j<n;j++){
+      if((d===1&&K[j].l<=cur)||(d===-1&&K[j].h>=cur)){if(stg===0)pnl=-1;else if(stg===2)pnl+=1/3;ex=j;break}
+      while(stg<3&&((d===1&&K[j].h>=en+(stg+1)*rk)||(d===-1&&K[j].l<=en-(stg+1)*rk))){pnl+=(stg+1)/3;stg++;if(stg===1)cur=en;else if(stg===2)cur=en+d*rk}
+      if(stg===3){ex=j;break}
+    }
+    out.push({id:sym+'-'+K[i].t,sym,side:d===1?'BUY':'SELL',t:K[i].t+900000,entry:en,sl:stop,cur,R:rk,tp:[1,2,3].map(k=>en+d*k*rk),stage:stg,open:ex<0,exitT:ex<0?null:K[ex].t+900000,pnl,costR:(cfg[2]?cfg[1]*en:cfg[1])/rk});
+    if(ex<0)break;i=ex+1;
+  }
+  return out}
+async function kl(pair,q){const r=await fetch('https://data-api.binance.vision/api/v3/klines?symbol='+pair+'&interval=15m&'+q);if(!r.ok)throw new Error(r.status);return (await r.json()).map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}))}
+async function loadScalp(){
+  try{
+    for(const sym of Object.keys(SCM)){const pair=SCM[sym][0];
+      if(!SCK[sym]){let K=await kl(pair,'limit=1000');for(let p=0;p<2;p++){const more=await kl(pair,'limit=1000&endTime='+(K[0].t-1));K=more.concat(K)}SCK[sym]=K}
+      else{const nw=await kl(pair,'limit=20'),K=SCK[sym];for(const x of nw){const last=K[K.length-1];if(x.t===last.t)K[K.length-1]=x;else if(x.t>last.t)K.push(x)}if(K.length>3200)K.splice(0,K.length-3200)}}
+    let all=[];SC.days=0;
+    for(const sym of Object.keys(SCM)){const K=SCK[sym].slice(0,-1);SC.px[sym]=SCK[sym][SCK[sym].length-1].c;all=all.concat(scalpRun(sym,K));SC.days=Math.max(SC.days,(K[K.length-1].t-K[810].t)/864e5)}
+    SC.list=all.sort((x,y)=>y.t-x.t);SC.ok=true;SC.err=false;
+  }catch(e){SC.err=true}
+  renderScalp();renderScStats();
+}
+function scPx(s){return LP[s.sym]!=null?LP[s.sym]:SC.px[s.sym]}
+function scNet(s){return s.open?s.pnl+(3-s.stage)/3*(scPx(s)-s.entry)*dirOf(s)/s.R-s.costR:s.pnl-s.costR}
+function scText(s){if(s.open)return s.stage?'TP'+s.stage+' ✓ · baki berjalan':'Sedang berjalan';return ['Kena SL','TP1 ✓ · baki tutup di entry','TP2 ✓ · baki tutup di TP1','TP3 ✓ selesai'][s.stage]}
+function scKind(s){return s.open?'active':scNet(s)>0?'win':'loss'}
+function scCard(s){
+  const p=scPx(s),v=scNet(s),f=x=>px(x,s.entry),far=(p-s.entry)*dirOf(s)/s.R;
+  return `<div class='sig'>
+    <div class='row between'><div class='row'><span class='coin'>${ic(s.sym)}</span><b>${nm(s.sym)}</b><span class='tfb'>M15</span><span class='side ${s.side}'>${s.side}</span></div><span style='font-size:12.5px;color:var(--muted)'>${when(new Date(s.t).toISOString())}</span></div>
+    <div class='row between'><span class='status ${scKind(s)}'>${scText(s)}</span><span class='rval ${v>=0?'pos':'neg'}'>${money(v)}${s.open?' terapung':''}</span></div>
+    <div class='row mono' style='font-size:12.5px;color:var(--muted)'>Zon ${f(s.entry-0.25*s.R)}–${f(s.entry+0.25*s.R)} · SL ${f(s.open?s.cur:s.sl)}</div>
+    <div class='row tps'>${s.tp.map((t,i)=>`<span class='tp ${i<s.stage?'hit':''}'>TP${i+1} ${f(t)}${i<s.stage?' ✓':''}</span>`).join('')}</div>
+    ${s.open?`<div class='chase ${s.stage===0&&Math.abs(far)>0.5?'warn':'ok'}'>Harga kini ${f(p)}${s.stage===0?(Math.abs(far)>0.5?', sudah jauh dari entry. Jangan kejar.':', masih dekat entry.'):'. SL sudah dialih ke '+(s.stage===1?'entry':'TP1')+'.'}</div>`:''}
+  </div>`}
+function renderScalp(){
+  const el=$('#scBody');if(!el)return;
+  if(!SC.ok){el.innerHTML=`<div class='empty'><b>${SC.err?'Scalping tak dapat dimuatkan':'Memuatkan candle M15…'}</b>${SC.err?'Semak sambungan internet, kemudian buka semula.':''}</div>`;return}
+  const L=SC.list,cl=L.filter(s=>!s.open),w=cl.filter(s=>scNet(s)>0),tot=cl.reduce((x,s)=>x+scNet(s),0),cnt=k=>cl.filter(s=>s.stage===k).length,run=L.filter(s=>s.open);
+  el.innerHTML=`<div class='strip'>${strip([['Sedang berjalan',run.length],['Win rate',cl.length?Math.round(w.length/cl.length*100)+'%':'–'],['Jumlah (risiko $10)',cl.length?money(tot):'–',cl.length?(tot>=0?'pos':'neg'):''],['Trade ('+Math.round(SC.days)+' hari)',cl.length]])}</div>
+    <div class='panel'><h2>Keputusan ikut tahap</h2><table class='dtable'><tbody>
+      <tr><td>TP3 ✓ selesai</td><td class='num'>${cnt(3)}</td><td class='num pos'>+$20.00</td></tr>
+      <tr><td>TP2 ✓, baki tutup di TP1</td><td class='num'>${cnt(2)}</td><td class='num pos'>+$13.33</td></tr>
+      <tr><td>TP1 ✓, baki tutup di entry</td><td class='num'>${cnt(1)}</td><td class='num pos'>+$3.33</td></tr>
+      <tr><td>Kena SL</td><td class='num'>${cnt(0)}</td><td class='num neg'>−$10.00</td></tr>
+    </tbody></table><p class='cap' style='margin:0'>Lajur kanan ialah hasil setiap trade sebelum spread. Jumlah di atas sudah ditolak anggaran spread.</p></div>
+    <div class='panel'><h2>Signal scalping berjalan</h2><div class='list'>${run.length?run.map(scCard).join(''):`<div class='empty'><b>Tiada setup sekarang</b>Signal keluar bila ada sweep diikuti CHoCH searah trend M15. Tab Radar dalam halaman pasaran menunjukkan corak yang sedang terbentuk.</div>`}</div></div>
+    <div class='panel'><h2>Sejarah scalping</h2><div class='list'>${cl.length?cl.slice(0,40).map(scCard).join(''):`<div class='empty'>Belum ada trade ditutup.</div>`}</div></div>`;
+}
+function renderScStats(){
+  const el=$('#scStats');if(!el)return;
+  if(!SC.ok){el.innerHTML=`<h2>Scalping M15 (ujian)</h2><p class='sub' style='margin:0'>${SC.err?'Tak dapat dimuatkan.':'Memuatkan…'}</p>`;return}
+  const cl=SC.list.filter(s=>!s.open),tot=cl.reduce((x,s)=>x+scNet(s),0),cnt=k=>cl.filter(s=>s.stage===k).length;
+  el.innerHTML=`<div class='row between'><h2>Scalping M15 (ujian)</h2><a href='#scalp' style='font-size:13px'>Buka ›</a></div>
+    <div class='row tps'><span class='tp hit'>TP3 selesai ${cnt(3)}</span><span class='tp hit'>TP2 ${cnt(2)}</span><span class='tp hit'>TP1 ${cnt(1)}</span><span class='tp' style='background:var(--sell-soft);color:var(--sell)'>SL ${cnt(0)}</span></div>
+    <p style='margin:0'>${cl.length} trade dalam ${Math.round(SC.days)} hari terakhir · jumlah <b class='${tot>=0?'pos':'neg'}'>${money(tot)}</b> (risiko $10, selepas anggaran spread). Rekod ini berasingan daripada signal H1 di atas.</p>`;
+  const tl=$('#scTile');if(tl)tl.textContent=SC.list.filter(s=>s.open).length+' berjalan · '+cl.length+' trade dalam '+Math.round(SC.days)+' hari';
+}
+
 /* ---------- carta ---------- */
 function renderChart(force){
   if(!D)return;
@@ -658,25 +747,27 @@ function openSignal(id){
 window.addEventListener('resize',()=>{const cv=$('#cv');if(cv&&cv._d)drawChart(cv,cv._d[0],cv._d[1]);renderClock()});
 
 /* ---------- laluan ---------- */
-const VIEWS=['home','signals','pair','chart','stats','guide'];
+const VIEWS=['home','signals','pair','scalp','chart','stats','guide'];
 function route(){
   let h=location.hash.slice(1)||'home',v=h;
   if(h.startsWith('pair-')){v='pair';const s=h.slice(5);if(s!==pairSym){pairSym=s;pairTab='setup'}}
   if(!VIEWS.includes(v))v='home';
   if(v==='pair'&&D&&!mk(pairSym))v='signals';
   VIEWS.forEach(x=>{$('#v-'+x).hidden=x!==v});
-  document.querySelectorAll('.tabbar a').forEach(a=>{const on=a.dataset.v===v||(v==='pair'&&a.dataset.v==='signals');on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
+  document.querySelectorAll('.tabbar a').forEach(a=>{const on=a.dataset.v===v||((v==='pair'||v==='scalp')&&a.dataset.v==='signals');on?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current')});
   closeSheet();window.scrollTo(0,0);
   if(v==='pair'){renderPairHero();renderPairBody()}
   if(v==='chart')renderChart();
+  if(v==='scalp')renderScalp();
   if(v==='home')renderClock();
 }
 function render(){renderLive();renderTape();renderClock();renderHomeData();renderMarkets();renderStats();renderChart();
   if(location.hash.startsWith('#pair-')){if(D&&!mk(pairSym))route();else{renderPairHero();renderPairBody()}}
   if(openId)openSignal(openId)}
 window.addEventListener('hashchange',route);
-route();render();load();startLive();
+route();render();load();startLive();loadScalp();
 setInterval(load,2*60*1000);
+setInterval(()=>{if(!document.hidden)loadScalp()},60*1000);
 setInterval(()=>{if(pairTab==='radar'&&!$('#v-pair').hidden&&!document.hidden)loadRadar(pairSym)},60*1000);
 setInterval(()=>{renderLive();renderClock()},30*1000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
