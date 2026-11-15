@@ -193,4 +193,18 @@ $json = '{"dikemas":' + (Q $myt.ToString('yyyy-MM-dd HH:mm')) + ',"tarikhData":'
   ',"kos":' + (N $COST) + ',"gagal":[' + (($fail | ForEach-Object { Q $_ }) -join ',') + '],"klci":' + $klciJson +
   ',"saham":[' + ($stocks -join ',') + '],"trades":[' + ($tj -join ',') + ']}'
 [IO.File]::WriteAllText($outFile, $json, (New-Object Text.UTF8Encoding $false))
+
+# Fail kecil untuk notifikasi app Android (VkWorker.semakSaham): signal baru, yang sedang dipegang, dan yang selesai/terlepas dalam 14 hari
+if ($true) {
+  $notiFile = if ($Keluar) { "$Keluar.noti.json" } else { Join-Path $dir 'vk-saham-noti.json' }
+  $cut = $myt.AddDays(-14).ToString('yyyy-MM-dd')
+  $nj = New-Object System.Collections.Generic.List[string]
+  foreach ($t in $trades) {
+    if ($t.status -eq 'SELESAI' -and $t.keluar -lt $cut) { continue }
+    if ($t.status -eq 'TERLEPAS' -and $t.sig -lt $cut) { continue }
+    $nj.Add('{"k":' + (Q $t.k) + ',"n":' + (Q $t.n) + ',"sig":' + (Q $t.sig) + ',"status":' + (Q $t.status) + ',"buyMax":' + (N $t.buyMax) +
+      ',"sl":' + (N $t.sl) + ',"entry":' + (N $t.entry) + ',"exit":' + (N $t.exit) + ',"ret":' + (N $t.ret '0.#####') + ',"sebab":' + (Q $t.sebab) + '}')
+  }
+  [IO.File]::WriteAllText($notiFile,'{"tarikhData":' + (Q $lastDate) + ',"t":[' + ($nj -join ',') + ']}', (New-Object Text.UTF8Encoding $false))
+}
 Write-Host "Siap: $($stocks.Count) saham, $($trades.Count) trade, gagal $($fail.Count). Data $lastDate -> $outFile"
