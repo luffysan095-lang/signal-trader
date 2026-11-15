@@ -28,7 +28,10 @@ jobs:
       group: vk-saham-kira
       cancel-in-progress: false
     steps:
+      # Sentiasa mula dari main terkini (bukan commit pencetus), supaya larian berturut-turut tidak bertembung
       - uses: actions/checkout@v4
+        with:
+          ref: main
       # Setiap pasaran berasingan: jika satu gagal, fail lamanya dikekalkan dan pasaran lain tetap dikemas kini
       - name: Kira signal Bursa
         continue-on-error: true
@@ -51,7 +54,8 @@ jobs:
           for f in vk-saham.json vk-saham-noti.json vk-saham-sg.json vk-saham-sg-noti.json vk-saham-us.json vk-saham-us-noti.json; do [ -f "$f" ] && git add "$f"; done
           git diff --cached --quiet && exit 0
           git commit -m "Signal VK Saham terkini"
-          git pull --rebase && git push || (sleep 20 && git pull --rebase && git push)
+          # Jika larian lain sempat menyimpan fail yang sama, data larian ini (lebih baru) diutamakan
+          git pull --rebase -X theirs && git push || (sleep 20 && git pull --rebase -X theirs && git push)
 
   terbit:
     needs: kira
