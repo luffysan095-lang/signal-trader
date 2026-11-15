@@ -2,7 +2,8 @@ name: VK Saham signal harian
 
 on:
   schedule:
-    # Isnin-Jumaat 6:50 petang MYT (pasaran Bursa tutup 5 petang), dan sekali lagi 9:15 malam jika Yahoo lewat
+    # Isnin-Jumaat 6:50 petang MYT (Bursa dan SGX tutup 5 petang), dan sekali lagi 9:15 malam jika Yahoo lewat.
+    # US: sesi New York semalam sudah tutup (4/5 pagi MYT), jadi signal US sedia sebelum pasaran US buka 9:30/10:30 malam MYT.
     - cron: '50 10 * * 1-5'
     - cron: '15 13 * * 1-5'
   push:
@@ -11,6 +12,8 @@ on:
       - 'vk-saham.html'
       - 'vk-saham.ps1'
       - 'senarai-vk-saham.txt'
+      - 'senarai-vk-saham-sg.txt'
+      - 'senarai-vk-saham-us.txt'
       - 'ipo.json'
       - '.github/workflows/vk-saham.yml'
   workflow_dispatch:
@@ -18,7 +21,7 @@ on:
 jobs:
   kira:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     permissions:
       contents: write
     concurrency:
@@ -26,15 +29,26 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
-      - name: Kira signal saham
+      # Setiap pasaran berasingan: jika satu gagal, fail lamanya dikekalkan dan pasaran lain tetap dikemas kini
+      - name: Kira signal Bursa
+        continue-on-error: true
         shell: powershell
-        run: ./vk-saham.ps1
+        run: ./vk-saham.ps1 -Pasaran MY
+      - name: Kira signal SGX (ujian)
+        continue-on-error: true
+        shell: powershell
+        run: ./vk-saham.ps1 -Pasaran SG
+      - name: Kira signal US saham besar (ujian)
+        continue-on-error: true
+        shell: powershell
+        run: ./vk-saham.ps1 -Pasaran US
       - name: Simpan signal
+        if: always()
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add vk-saham.json vk-saham-noti.json
+          for f in vk-saham.json vk-saham-noti.json vk-saham-sg.json vk-saham-sg-noti.json vk-saham-us.json vk-saham-us-noti.json; do [ -f "$f" ] && git add "$f"; done
           git diff --cached --quiet && exit 0
           git commit -m "Signal VK Saham terkini"
           git pull --rebase && git push || (sleep 20 && git pull --rebase && git push)
