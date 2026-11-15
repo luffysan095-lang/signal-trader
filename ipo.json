@@ -1,1 +1,65 @@
-[object Object]
+{
+  "dikemaskini": "2026-11-08",
+  "sejarah": {
+    "nota": "224 IPO ACE sejak 2017 (data Yahoo). Kalau BELI pada harga buka hari pertama, bukan harga IPO.",
+    "baris": [
+      ["Tutup hari pertama", "39%", "+0.0%"],
+      ["Pegang 1 bulan", "40%", "-4.4%"],
+      ["Pegang 6 bulan", "43%", "-9.1%"],
+      ["Pegang 1 tahun", "44%", "-3.3%"]
+    ],
+    "kesimpulan": "Separuh besar IPO ACE jatuh selepas hari pertama. Kajian akademik Malaysia sama: IPO ACE biasanya naik tinggi pada hari pertama berbanding harga IPO, tetapi prestasi jangka panjang lebih teruk daripada pasaran. Langganan tinggi meramal lonjakan hari pertama, bukan pulangan setahun. PE pada harga IPO tidak meramal pulangan hari pertama. Pada 2025, sembilan IPO selepas Mac 2025 ditutup bawah harga tawaran pada hari pertama. Kesimpulan: untung biasanya pergi kepada yang dapat saham melalui undian (balloting) pada harga IPO; membeli di pasaran pada hari pertama, secara purata, tidak menguntungkan."
+  },
+  "thesis": [
+    "Harga: PE 12 kali atau kurang +1, 12 hingga 18 kali 0, lebih 18 kali -1",
+    "Permintaan awam: lebih 20 kali langganan +1, 5 hingga 20 kali 0, kurang 5 kali -1",
+    "Pemegang lama jual (offer for sale): kurang 30% daripada IPO +1, 30 hingga 50% 0, lebih 50% -1",
+    "Guna dana: untuk berkembang (mesin, kilang, R&D) +1, modal kerja 0, banyak bayar hutang -1",
+    "Untung beberapa tahun lepas: naik +1, mendatar 0, jatuh -1"
+  ],
+  "senarai": [
+    {
+      "nama": "SKA Capital Berhad", "pasaran": "ACE", "senaraiPada": "2026-11-11", "harga": 0.43,
+      "permohonan": "Ditutup", "nilaiPasaran": "RM385 juta", "pe": 13.3, "langganan": "80.42 kali",
+      "perniagaan": "Kejuruteraan pencawang elektrik dan utiliti bawah tanah. Buku pesanan RM313 juta.",
+      "skor": [["Harga PE 13.3", 0], ["Langganan 80 kali", 1], ["Pemegang lama jual 30%", 0], ["Dana: modal kerja, bon prestasi, mesin", 0], ["Untung FY2025 RM30.8 juta, trend belum disahkan", 0]],
+      "jumlah": 1,
+      "pandangan": "Permintaan sangat tinggi, jadi harga hari pertama mungkin naik. PE wajar untuk sektor tenaga. Risiko: kalau buka terlalu tinggi, sejarah ACE tunjuk harga selalu turun selepas itu."
+    },
+    {
+      "nama": "KEB Berhad", "pasaran": "ACE", "senaraiPada": "2026-11-16", "harga": 0.35,
+      "permohonan": "Ditutup", "nilaiPasaran": "RM309 juta", "pe": 6.0, "langganan": "1.01 kali",
+      "perniagaan": "Pemaju hartanah.",
+      "skor": [["Harga PE sekitar 6", 1], ["Langganan hanya 1.01 kali", -1], ["Pemegang lama jual 39%", 0], ["Dana: tanah, modal pembangunan, bayar hutang RM8.5 juta", 0], ["Trend untung belum disahkan", 0]],
+      "jumlah": 0,
+      "pandangan": "Murah dari segi PE, tetapi permintaan awam sangat lemah. Hartanah biasanya dinilai rendah oleh pasaran. Risiko tinggi harga dibuka bawah harga IPO."
+    },
+    {
+      "nama": "MyDCD Berhad", "pasaran": "ACE", "senaraiPada": "2026-11-17", "harga": 0.56,
+      "permohonan": "Ditutup", "nilaiPasaran": "RM1.0 bilion", "pe": 15.0, "langganan": "36.46 kali",
+      "perniagaan": "Kejuruteraan pusat data (data centre).",
+      "skor": [["Harga PE sekitar 15", 0], ["Langganan 36 kali", 1], ["Pemegang lama jual 30%", 0], ["Dana: 71% modal kerja dan bon prestasi", 0], ["Trend untung belum disahkan", 0]],
+      "jumlah": 1,
+      "pandangan": "Tema pusat data sedang popular dan permintaan kuat. Nilai pasaran RM1 bilion besar untuk ACE, jadi ruang naik mungkin lebih terhad. Risiko: tema popular boleh cepat sejuk."
+    },
+    {
+      "nama": "Impact Capital Holdings Berhad", "pasaran": "ACE", "senaraiPada": "2026-11-24", "harga": 0.22,
+      "permohonan": "Ditutup (undian 12 Nov)", "nilaiPasaran": "RM106 juta", "pe": 11.3, "langganan": "Belum diumumkan",
+      "perniagaan": "Infrastruktur ICT di Sarawak. Tunai RM32.9 juta, hutang RM4.2 juta (Jun 2026).",
+      "skor": [["Harga PE sekitar 11.3 (satu sumber sahaja)", 1], ["Langganan belum diumumkan", 0], ["Pemegang lama jual 23%", 1], ["Dana: pejabat baru dan pekerja", 0], ["Trend untung belum disahkan", 0]],
+      "jumlah": 2,
+      "pandangan": "Kunci kira-kira kukuh dengan tunai bersih. Saiz kecil (RM106 juta), jadi harga boleh bergerak liar. Tunggu angka langganan sebelum membuat keputusan."
+    },
+    {
+      "nama": "Emits Berhad", "pasaran": "ACE", "senaraiPada": "2026-12-01", "harga": 0.16,
+      "permohonan": "DIBUKA hingga 19 Nov 2026", "nilaiPasaran": "RM75 juta", "pe": 14.4, "langganan": "Belum ditutup",
+      "perniagaan": "Pengeluar antena (termasuk 5G) di Pulau Pinang.",
+      "skor": [["Harga PE sekitar 14.4 (kiraan sendiri)", 0], ["Langganan belum ditutup", 0], ["Pemegang lama jual 29%", 1], ["Dana: kembangkan antena 5G dan R&D", 1], ["Untung naik RM2.2 juta ke RM5.2 juta (FY23 ke FY25)", 1]],
+      "jumlah": 3,
+      "pandangan": "Skor thesis paling tinggi: untung meningkat dan dana untuk berkembang. Tetapi syarikat sangat kecil (RM75 juta), jadi risikonya tinggi. Satu-satunya IPO dalam senarai ini yang masih boleh dimohon."
+    }
+  ],
+  "sumber": [
+    "theedgemalaysia.com, thestar.com.my, nst.com.my, themalaysianreserve.com, businesstoday.com.my, minichart.com.sg (Okt-Nov 2026)"
+  ]
+}
