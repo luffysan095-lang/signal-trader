@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>VK Saham</title>
-<meta name="description" content="Signal saham harian Bursa Malaysia, SGX dan US: beli pada paras tertinggi 52 minggu, jual bawah EMA50. Rekod jujur.">
+<meta name="description" content="Signal saham harian Bursa Malaysia, SGX dan US: beli pada paras tertinggi 52 minggu, jual dengan trailing stop 10 ATR. Rekod jujur.">
 <meta name="theme-color" content="#0A0907">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -207,13 +207,13 @@ const store = { get(k, d) { try { const v = localStorage.getItem('vks:' + k); re
 const MKS = {
   my: { file: 'vk-saham.json', cur: 'RM', lot: 100, nama: 'Bursa Malaysia', pendek: 'Bursa', flag: '🇲🇾', suf: '.KL', modal: 5000, ujian: false,
         fee: v => { const kom = v * 0.0003, plat = 3, clr = Math.min(v * 0.0003, 1000); return kom + plat + clr + (kom + plat + clr) * 0.08 + Math.min(Math.ceil(v / 1000), 1000); },
-        feeNota: 'Yuran Moomoo MY (komisen 0.03%, platform RM3, penjelasan, SST 8%, duti setem).', ex: [1.00, 0.92], penny: true, ipo: true },
-  sg: { file: 'vk-saham-sg.json', cur: 'S$', lot: 100, nama: 'Singapore (SGX)', pendek: 'SGX', flag: '🇸🇬', suf: '.SI', modal: 2000, ujian: true,
+        feeNota: 'Yuran Moomoo MY (komisen 0.03%, platform RM3, penjelasan, SST 8%, duti setem).', ex: [1.00, 0.80], penny: true, ipo: true },
+  sg: { file: 'vk-saham-sg.json', cur: 'S$', lot: 100, nama: 'Singapore (SGX)', pendek: 'SGX', flag: '🇸🇬', suf: '.SI', modal: 1500, ujian: true,
         fee: v => { const kom = Math.max(0.99, v * 0.0003), plat = Math.max(0.99, v * 0.0003), clr = v * 0.000325, trd = v * 0.000075; return (kom + plat) * 1.09 + (clr + trd) * 1.09; },
-        feeNota: 'Anggaran yuran Moomoo SG (komisen 0.03% min S$0.99, platform 0.03% min S$0.99, SGX 0.04%, GST 9%). Semak jadual yuran terkini; selepas promosi ia boleh jauh lebih mahal.', ex: [1.00, 0.92], penny: true, ipo: false },
+        feeNota: 'Anggaran yuran Moomoo SG (komisen 0.03% min S$0.99, platform 0.03% min S$0.99, SGX 0.04%, GST 9%). Semak jadual yuran terkini; selepas promosi ia boleh jauh lebih mahal.', ex: [1.00, 0.80], penny: true, ipo: false },
   us: { file: 'vk-saham-us.json', cur: 'US$', lot: 1, nama: 'Amerika (saham besar)', pendek: 'US', flag: '🇺🇸', suf: '', modal: 1000, ujian: true,
         fee: v => (v * 0.0003 + 0.99) * 1.08,
-        feeNota: 'Anggaran yuran Moomoo MY untuk saham US (0.03% + US$0.99, SST 8%). Belum termasuk kos tukaran RM ke USD.', ex: [100, 92], penny: false, ipo: false }
+        feeNota: 'Anggaran yuran Moomoo MY untuk saham US (0.03% + US$0.99, SST 8%). Belum termasuk kos tukaran RM ke USD.', ex: [100, 80], penny: false, ipo: false }
 };
 let MK = (new URLSearchParams(location.search).get('p') || store.get('pasaran', 'my')).toLowerCase();
 if (!MKS[MK]) MK = 'my';
@@ -221,14 +221,16 @@ store.set('pasaran', MK);
 const M = MKS[MK];
 
 let D = null, S = [], BY = {}, T = [], IPO = null;
-let MODAL = store.get('modal-' + MK, store.get(MK === 'my' ? 'modal' : '-', M.modal)), RISK = store.get('risk', 1);
+let MODAL = store.get('saiz-' + MK, M.modal);
 let BLUE = new Set(), DIVTOP = [], LISTCAT = 'semua', QUERY = '';
 const IDX = () => (D && D.klci && D.klci.nama) || 'Indeks';
 const unitTxt = z => M.lot === 1 ? `<b>${z.u.toLocaleString('en-MY')} saham</b>` : `<b>${z.lot} lot</b> (${z.u.toLocaleString('en-MY')} unit)`;
 
-/* Ujian 10 tahun (PromptTest.java, 960 saham Bursa, kos 0.5%, 2016-2026). Hasil dibekukan 2026-11-15. */
+/* Ujian 10 tahun (PromptTest/ExitTest/SizeTest, 960 saham Bursa, 2016-2026). Hasil dibekukan 2026-11-15.
+   Peraturan semasa = trailing stop 10 ATR (varian D). Purata % = setiap trade selepas yuran Moomoo + spread, RM1k-5k setiap saham. */
 const UJIAN = [
-  {n:'VK Saham (tertinggi 52 minggu, SL 2 ATR, jual bawah EMA50)', t:3473, w:16, avg:1.77, pf:1.41, a:'+1083R', b:'+317R', ok:true},
+  {n:'VK Saham SEKARANG: tertinggi 52 minggu, trailing stop 10 ATR', t:2086, w:35, avg:3.33, pf:1.51, a:'+209R', b:'+177R', ok:true},
+  {n:'VK lama: SL 2 ATR, jual bawah EMA50 (rugi tanpa 2020)', t:3473, w:16, avg:1.52, pf:1.41, a:'+1083R', b:'+317R'},
   {n:'Prompt Swing: breakout 20 hari, RSI 50-70, SL rendah 10 hari, TP 1:2', t:5630, w:42, avg:-0.28, pf:0.93, a:'-56R', b:'-144R'},
   {n:'Prompt Swing: pullback EMA20, SL rendah 10 hari, TP 1:2', t:8309, w:34, avg:-1.10, pf:0.69, a:'-862R', b:'-929R'},
   {n:'Prompt Swing: breakout 20 hari, SL 2 ATR, TP 1:2', t:7387, w:32, avg:-0.75, pf:0.67, a:'-796R', b:'-1245R'},
@@ -237,39 +239,42 @@ const UJIAN = [
 ];
 /* Rekod 10 tahun mengikut pasaran (PromptTest/ExitTest 2026-11-15, peraturan VK yang sama, kos sebenar pasaran) */
 const UJI = {
-  my: { rows: UJIAN, tahun: [['2017','+228'],['2018','-84'],['2019','+43'],['2020','+1021'],['2021','-152'],['2022','-31'],['2023','+157'],['2024','+211'],['2025','+78'],['2026','-71']],
-        nota: 'PF = jumlah untung ÷ jumlah rugi. Bawah 1 = rugi. Hanya peraturan VK lulus. Tapi jujur: hampir 3/4 untungnya datang dari tahun 2020 (lantunan selepas COVID). Tanpa 2020: +379R dalam 9 tahun.',
-        sub: '960 saham Bursa, 2016-2026, kos 0.5%. Peraturan prompt dibekukan dulu, baru diuji. R = berapa kali risiko.' },
-  sg: { rows: [{n:'VK di SGX (tertinggi 52 minggu, SL 2 ATR, jual bawah EMA50)', t:960, w:18, avg:1.33, pf:1.23, a:'-127R', b:'+347R', ok:true}],
-        tahun: [['2017','-27'],['2018','-62'],['2019','-73'],['2020','+67'],['2021','-32'],['2022','+3'],['2023','+35'],['2024','-25'],['2025','+221'],['2026','+114']],
-        nota: 'UJIAN: untung keseluruhan, tetapi rugi dalam kebanyakan tahun 2017-2024. Hampir semua untung datang dari 2025-26. Jangan guna wang sebenar sebelum rekod langsung membuktikannya.',
-        sub: '418 saham SGX, 2016-2026, kos 0.35%. R = berapa kali risiko.' },
-  us: { rows: [{n:'VK di US, saham besar ≥ US$200 juta sehari (yang dipakai)', t:7410, w:20, avg:0.62, pf:1.12, a:'+413R', b:'+375R', ok:true},
-               {n:'VK di US, semua saham (TIDAK dipakai)', t:27324, w:19, avg:0.23, pf:0.99, a:'+444R', b:'-706R'}],
-        tahun: [['2017','+13'],['2018','-275'],['2019','+116'],['2020','+546'],['2021','-69'],['2022','-234'],['2023','+294'],['2024','+231'],['2025','+472'],['2026','-306']],
-        nota: 'UJIAN: semua saham US rugi selepas kos (PF 0.99), jadi hanya saham besar dipantau. Saham besar untung tipis (PF 1.12; tanpa 2020 PF 1.04). Penapis "saham besar" dipilih selepas melihat keputusan pertama, jadi hasil sebenar mungkin lebih lemah. Untuk pelaburan jangka panjang, ujian kita mendapati ETF indeks (contoh VOO) lebih baik.',
-        sub: '629 saham US paling aktif, 2016-2026, kos 0.1% (yuran tetap US$0.99 belum dikira). R = berapa kali risiko.' }
+  my: { rows: UJIAN, tahun: [['2017','2.34'],['2018','0.52'],['2019','1.44'],['2020','3.16'],['2021','0.85'],['2022','0.81'],['2023','2.21'],['2024','1.41'],['2025','1.60'],['2026','0.95']],
+        nota: 'PF = jumlah untung ÷ jumlah rugi; bawah 1 = rugi. Trailing 10 ATR: PF 1.51, tanpa 2020 masih PF 1.25, menang lebih kurang 1 daripada 3 trade. Wang sebenar (yuran Moomoo + spread): RM1k-5k setiap saham = purata +RM161 setiap trade, tanpa 2020 masih +RM37,938 untuk semua isyarat. RM1,000 sahaja setiap saham = hampir pulang modal tanpa 2020 (+RM1,936 untuk 1,730 trade) kerana yuran. Akaun RM20k (4 saham) ≈ +8.5%/thn, tetapi pernah jatuh −30% hingga −52%.',
+        sub: '960 saham Bursa, 2016-2026. Peraturan prompt dibekukan dulu, baru diuji. Baris PF tahun di bawah = peraturan sekarang.' },
+  sg: { rows: [{n:'VK di SGX: trailing stop 10 ATR (sekarang)', t:592, w:35, avg:2.08, pf:1.35, a:'-14R', b:'+90R', ok:true},
+               {n:'VK lama di SGX: SL 2 ATR, bawah EMA50', t:960, w:18, avg:1.17, pf:1.23, a:'-127R', b:'+347R'}],
+        tahun: [['2017','0.68'],['2018','0.42'],['2019','1.06'],['2020','1.58'],['2021','0.68'],['2022','0.84'],['2023','1.28'],['2024','1.11'],['2025','3.29'],['2026','1.38']],
+        nota: 'UJIAN: untung keseluruhan (S$1,500 setiap saham ≈ +S$33 purata setiap trade), tetapi rugi dalam kebanyakan tahun 2017-2022 dan separuh pertama data. Hampir semua untung datang dari 2025-26. Jangan guna wang sebenar sebelum rekod langsung membuktikannya.',
+        sub: '418 saham SGX, 2016-2026. Baris PF tahun = peraturan sekarang.' },
+  us: { rows: [{n:'VK di US saham besar: trailing stop 10 ATR (sekarang)', t:4191, w:39, avg:1.74, pf:1.27, a:'+83R', b:'+289R', ok:true},
+               {n:'VK lama di US saham besar: SL 2 ATR, bawah EMA50', t:7410, w:20, avg:0.53, pf:1.12, a:'+413R', b:'+375R'},
+               {n:'VK lama di US, semua saham (TIDAK dipakai)', t:27324, w:19, avg:0.23, pf:0.99, a:'+444R', b:'-706R'}],
+        tahun: [['2017','2.14'],['2018','0.50'],['2019','1.47'],['2020','2.27'],['2021','1.04'],['2022','0.41'],['2023','1.96'],['2024','1.45'],['2025','1.79'],['2026','0.63']],
+        nota: 'UJIAN: semua saham US rugi selepas kos, jadi hanya saham besar dipantau. Dengan trailing 10 ATR dan US$1,000 setiap saham ≈ +US$18 purata setiap trade (tanpa 2020 masih untung). Penapis "saham besar" dipilih selepas melihat keputusan pertama, jadi hasil sebenar mungkin lebih lemah. Untuk pelaburan jangka panjang, ETF indeks (contoh VOO) lebih mudah.',
+        sub: '629 saham US paling aktif, 2016-2026. Baris PF tahun = peraturan sekarang.' }
 };
 const TAHUN = UJI[MK].tahun;
 
 /* Yuran Moomoo MY satu hala: 0.03% komisen + RM3 platform + 0.03% penjelasan (maks RM1,000) + SST 8% atas yuran + duti setem RM1 setiap RM1,000 */
 function yuran(nilai) { return nilai > 0 ? M.fee(nilai) : 0; }
-/* Saiz kedudukan: risiko % modal dibahagi jarak SL, dibundarkan ke lot 100 unit, tidak melebihi modal */
+/* Saiz kedudukan (ditukar 2026-11-15): modal TETAP setiap saham (pengguna: Bursa RM1,000-5,000), dibundarkan ke bawah ke lot.
+   Dengan trailing stop 10 ATR, saiz ikut risiko % memberi kedudukan terlalu kecil untuk yuran Moomoo. */
+const SAIZ_MIN = { my: 1000, sg: 500, us: 300 }[MK], SAIZ_ELOK = { my: 2000, sg: 700, us: 500 }[MK];
 function saiz(entry, sl) {
-  const R = entry - sl; if (!(R > 0) || !(entry > 0)) return null;
-  const L = M.lot, byRisk = Math.floor(MODAL * RISK / 100 / R / L) * L, byCap = Math.floor(MODAL / entry / L) * L;
-  const u = Math.max(0, Math.min(byRisk, byCap)), nilai = u * entry;
-  return { u, lot: u / L, nilai, rugi: u * R + yuran(nilai) + yuran(u * sl), yur: yuran(nilai) + yuran(nilai), byRisk, byCap };
+  if (!(entry > 0)) return null;
+  const L = M.lot, u = Math.max(0, Math.floor(MODAL / entry / L) * L), nilai = u * entry, R = Math.max(0, entry - sl);
+  return { u, lot: u / L, nilai, rugi: u * R + yuran(nilai) + yuran(u * sl), yur: yuran(nilai) + yuran(nilai), slPct: R / entry };
 }
 function calcHtml(entry, sl) {
   const z = saiz(entry, sl);
   if (!z) return '';
   if (z.u === 0) {
-    const min = M.lot * entry;
-    return `<p class="calc">Modal ${rm(MODAL)} dengan risiko ${RISK}% tak cukup untuk ${M.lot === 1 ? '1 saham' : '1 lot'} (${M.lot} unit = ${rm2(min)}, risiko ${rm2(M.lot * (entry - sl))}). Lebih baik lepaskan signal ini.</p>`;
+    return `<p class="calc">${M.lot === 1 ? '1 saham' : '1 lot (' + M.lot + ' unit)'} = ${rm2(M.lot * entry)}, lebih besar daripada modal setiap saham ${rm(MODAL)}. Lepaskan, atau naikkan modal setiap saham.</p>`;
   }
-  const kecil = z.nilai < 20 * yuran(z.nilai) ? ` <span class="neg">Yuran ${rm2(2 * yuran(z.nilai))} pergi-balik = ${(200 * yuran(z.nilai) / z.nilai).toFixed(1)}% daripada nilai: terlalu besar untuk saiz ini.</span>` : '';
-  return `<p class="calc">Modal ${rm(MODAL)}, risiko ${RISK}%: beli ${unitTxt(z)} ≈ <b>${rm2(z.nilai)}</b>.${kecil} Kalau kena SL, rugi lebih kurang <b class="neg">${rm2(z.rugi)}</b> termasuk yuran.${z.byCap < z.byRisk ? ' (Dihadkan oleh modal.)' : ''}</p>`;
+  const yp = 200 * yuran(z.nilai) / z.nilai;
+  const kecil = z.nilai < SAIZ_ELOK ? ` <span class="neg">Yuran pergi-balik ${rm2(2 * yuran(z.nilai))} = ${yp.toFixed(1)}% daripada nilai: dalam ujian, saiz sekecil ini hampir pulang modal. Cuba ${rm(SAIZ_ELOK)} ke atas.</span>` : '';
+  return `<p class="calc">Modal ${rm(MODAL)} setiap saham: beli ${unitTxt(z)} ≈ <b>${rm2(z.nilai)}</b>.${kecil} Kalau jatuh terus ke stop awal (${(z.slPct * 100).toFixed(0)}% bawah), rugi lebih kurang <b class="neg">${rm2(z.rugi)}</b> termasuk yuran.</p>`;
 }
 
 function trendUp(s) { return s.e50 > s.e200 && s.c > s.e200; }
@@ -341,15 +346,14 @@ function ujianBanner() {
 }
 
 function settingsHtml() {
-  return `<div class="panel"><h2>Modal saya</h2><div class="two">
-    <label class="field">Modal (${esc(M.cur)})<input id="inModal" type="number" min="0" step="500" value="${MODAL}" inputmode="numeric"></label>
-    <label class="field">Risiko setiap trade (%)<select id="inRisk">${[0.5, 1, 1.5, 2].map(r => `<option value="${r}"${r == RISK ? ' selected' : ''}>${r}% = ${rm(MODAL * r / 100)}</option>`).join('')}</select></label></div>
-    <p class="cap">Saiz lot dikira supaya kalau kena SL, rugi lebih kurang sama dengan risiko ini. Disimpan dalam telefon ini sahaja.</p></div>`;
+  const pilihan = { my: [1000, 2000, 3000, 4000, 5000], sg: [500, 1000, 1500, 2000], us: [300, 500, 1000, 1500, 2000] }[MK];
+  return `<div class="panel"><h2>Modal setiap saham</h2>
+    <label class="field">Berapa ${esc(M.cur)} untuk setiap saham yang dibeli<select id="inModal">${pilihan.concat(pilihan.includes(MODAL) ? [] : [MODAL]).sort((a, b) => a - b).map(v => `<option value="${v}"${v == MODAL ? ' selected' : ''}>${rm(v)}</option>`).join('')}</select></label>
+    <p class="cap">Dalam ujian 10 tahun di Bursa: ${MK === 'my' ? 'RM4,000-5,000 setiap saham untung walaupun tanpa 2020; RM1,000 hampir pulang modal kerana yuran.' : 'saiz kecil dimakan yuran tetap.'} Untuk beberapa saham serentak, modal keseluruhan sekurang-kurangnya 4 × saiz ini (contoh ${rm(4 * MODAL)}). Disimpan dalam telefon ini sahaja.</p></div>`;
 }
 function bindSettings(redraw) {
-  const m = $('#inModal'), r = $('#inRisk');
-  if (m) m.addEventListener('change', () => { MODAL = Math.max(0, +m.value || 0); store.set('modal-' + MK, MODAL); redraw(); });
-  if (r) r.addEventListener('change', () => { RISK = +r.value; store.set('risk', RISK); redraw(); });
+  const m = $('#inModal');
+  if (m) m.addEventListener('change', () => { MODAL = Math.max(SAIZ_MIN, +m.value || M.modal); store.set('saiz-' + MK, MODAL); redraw(); });
 }
 
 function sigCard(t) {
@@ -361,10 +365,10 @@ function sigCard(t) {
       <span class="st ${t.status}">${isNew ? 'BELI' : t.status}</span></div>
     <div class="three">
       <div class="box buy"><div class="k">${isNew ? 'Had beli esok' : 'Harga beli'}</div><div class="p">${isNew ? '≤ ' + px(t.buyMax) : px(t.entry)}</div></div>
-      <div class="box sell"><div class="k">Stop Loss</div><div class="p">${px(t.sl)}</div></div>
-      <div class="box"><div class="k">${isNew ? 'Jual bila' : 'Sekarang'}</div><div class="p">${isNew ? '&lt; EMA50' : px(now) + ' <small class="' + cls(pl) + '">' + pc(pl) + '</small>'}</div></div>
+      <div class="box sell"><div class="k">${isNew ? 'Stop awal ≈' : 'Stop sekarang'}</div><div class="p">${px(isNew ? t.sl : (t.stop || t.sl))}</div></div>
+      <div class="box"><div class="k">${isNew ? 'Jual bila' : 'Sekarang'}</div><div class="p">${isNew ? 'sentuh stop' : px(now) + ' <small class="' + cls(pl) + '">' + pc(pl) + '</small>'}</div></div>
     </div>
-    ${isNew ? calcHtml(t.close, t.sl) : `<p class="calc">Jual bila harga <b>tutup bawah EMA50</b> (sekarang ${px(s.e50)}) atau kena SL ${px(t.sl)}.</p>`}
+    ${isNew ? calcHtml(t.close, t.sl) : `<p class="calc">Trailing stop: setiap hari stop naik ke <b>harga tutup tertinggi sejak beli − 10 ATR</b>, tidak pernah turun. Sekarang ${px(t.stop || t.sl)} (${pc((t.stop || t.sl) / now - 1)} dari harga). Jual bila harga jatuh menyentuh stop.${t.stop > t.entry ? ' <b class="pos">Stop sudah atas harga beli: untung dikunci.</b>' : ''}</p>`}
   </a>`;
 }
 
@@ -451,13 +455,14 @@ function analisa(s) {
   if (s.eps != null && s.eps <= 0) risiko.push(`Syarikat rugi (EPS ${M.cur}${s.eps}).`);
   if (s.vol > 40) risiko.push(`Harga sangat liar: bergerak ±${s.vol.toFixed(0)}% setahun.`);
   if (s.c < 1 && MK !== 'us') risiko.push(`Saham penny: 1 sen = ${(0.01 / s.c * 100).toFixed(1)}% pergerakan.`);
-  if (up && s.c / s.e50 - 1 > 0.15) risiko.push(`Harga ${pc(s.c / s.e50 - 1)} atas EMA50: kalau jatuh ke EMA50, untung banyak hilang.`);
+  const stopJauh = 10 * s.atr / s.c;
+  if (up && stopJauh > 0.25) risiko.push(`Stop trailing 10 ATR jauh: ${(stopJauh * 100).toFixed(0)}% bawah harga. Satu trade boleh rugi sebanyak itu sebelum stop kena.`);
   if (s.dy < 1) risiko.push('Dividen kecil atau tiada.');
-  risiko.push('Strategi ini menang lebih kurang 1 daripada 6 trade (ujian 10 tahun); kebanyakan trade rugi kecil.');
+  risiko.push('Strategi ini menang lebih kurang 1 daripada 3 trade (ujian 10 tahun), dan akaun pernah jatuh −30% hingga −50% sebelum naik semula.');
   let plan;
-  if (ot && ot.status === 'BARU') plan = `<li><b>Zon belian:</b> harga buka esok, hanya jika ≤ ${px(ot.buyMax)}.</li><li><b>Stop Loss:</b> ${px(ot.sl)} (2 × ATR).</li><li><b>Sasaran:</b> tiada TP tetap. Jual bila harga tutup bawah EMA50 (sekarang ${px(s.e50)}). Dalam ujian, trade yang menang purata naik jauh lebih besar daripada 1:2.</li>`;
-  else if (ot) plan = `<li><b>Sudah dibeli</b> ${esc(ot.masuk)} pada ${px(ot.entry)} (sekarang ${pc(ot.harga / ot.entry - 1)}).</li><li><b>Stop Loss:</b> ${px(ot.sl)}.</li><li><b>Jual:</b> bila tutup bawah EMA50 (sekarang ${px(s.e50)}).</li>`;
-  else if (up) plan = `<li><b>Zon belian:</b> tunggu harga TUTUP atas ${px(s.hh)} (paras tertinggi 52 minggu). Kemudian beli harga buka esok.</li><li><b>Stop Loss anggaran:</b> ${px(s.hh - 2 * s.atr)} (paras itu − 2 × ATR ${px(s.atr)}).</li><li><b>Sasaran:</b> tiada TP tetap; jual bila tutup bawah EMA50.</li>`;
+  if (ot && ot.status === 'BARU') plan = `<li><b>Zon belian:</b> harga buka esok, hanya jika ≤ ${px(ot.buyMax)}.</li><li><b>Stop awal:</b> lebih kurang ${px(ot.sl)} (harga beli − 10 × ATR).</li><li><b>Sasaran:</b> tiada TP tetap. Stop naik setiap hari mengikut harga tertinggi; jual bila harga jatuh menyentuh stop. Dalam ujian, trade yang menang purata naik jauh lebih besar daripada 1:2.</li>`;
+  else if (ot) plan = `<li><b>Sudah dibeli</b> ${esc(ot.masuk)} pada ${px(ot.entry)} (sekarang ${pc(ot.harga / ot.entry - 1)}).</li><li><b>Stop sekarang:</b> ${px(ot.stop || ot.sl)} (naik mengikut harga tertinggi, tidak pernah turun).</li><li><b>Jual:</b> bila harga jatuh menyentuh stop.</li>`;
+  else if (up) plan = `<li><b>Zon belian:</b> tunggu harga TUTUP atas ${px(s.hh)} (paras tertinggi 52 minggu). Kemudian beli harga buka esok.</li><li><b>Stop awal anggaran:</b> ${px(s.hh - 10 * s.atr)} (paras itu − 10 × ATR ${px(s.atr)}).</li><li><b>Sasaran:</b> tiada TP tetap; trailing stop naik ikut harga.</li>`;
   else plan = `<li><b>Swing: ELAK.</b> Tunggu trend naik semula (harga atas EMA200 ${px(s.e200)}).</li>`;
   if (DIVTOP.some(d => d.k === s.k) && MK !== 'us') plan += `<li><b>Pelaburan:</b> dalam senarai Dividen + Stabil. Beli sekali setahun, pegang 12 bulan, tiada SL (diuji: ≈ ${MK === 'sg' ? '+6.9' : '+8.4'}% setahun termasuk dividen).</li>`;
   return { cats, kuat: kuat.slice(0, 3), risiko: risiko.slice(0, 2), plan };
@@ -472,7 +477,7 @@ function renderStock(k) {
     <div class="row between"><div><h1>${esc(s.n)}</h1><div class="k">${M.flag} ${esc(s.k)}${esc(M.suf)} · data ${esc(s.tarikh)}</div></div><span class="st ${stName(s)}">${stName(s)}</span></div>
     <div><div class="hero-px">${px(s.c)}</div><div class="${cls(ch)} mono">${pc(ch, 2)} hari ini</div></div>
     <div class="panel"><div class="chart-box"><canvas id="cv"></canvas></div>
-      <p class="cap">180 hari. Garis emas = paras tertinggi 52 minggu ${px(s.hh)} · biru = EMA50 hari ini ${px(s.e50)}${ot ? ' · merah = SL ' + px(ot.sl) : ''}.</p></div>
+      <p class="cap">180 hari. Garis emas = paras tertinggi 52 minggu ${px(s.hh)}${ot ? ' · merah = stop ' + px(ot.stop || ot.sl) : ' · merah = stop awal anggaran ' + px(s.hh - 10 * s.atr)}.</p></div>
     ${ot ? sigCard(ot) : ''}
     <div class="panel ana">
       <div class="k">Analisis ikut format prompt</div>
@@ -501,12 +506,13 @@ function drawChart(s, ot) {
   cv.width = r.width * dpr; cv.height = r.height * dpr;
   const g = cv.getContext('2d'); g.scale(dpr, dpr);
   const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
-  const c = s.cl, lv = [s.hh, s.e50].concat(ot ? [ot.sl] : []);
+  const st = ot ? (ot.stop || ot.sl) : s.hh - 10 * s.atr;
+  const c = s.cl, lv = [s.hh].concat(st > 0 ? [st] : []);
   let lo = Math.min(...c, ...lv), hi = Math.max(...c, ...lv); const pad = (hi - lo) * 0.08 || 0.01; lo -= pad; hi += pad;
   const W = r.width, H = r.height, X = i => 8 + i * (W - 60) / (c.length - 1), Y = v => 8 + (hi - v) * (H - 16) / (hi - lo);
   const line = (v, color, dash) => { g.strokeStyle = color; g.setLineDash(dash ? [5, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.moveTo(8, Y(v)); g.lineTo(W - 52, Y(v)); g.stroke(); g.setLineDash([]);
     g.fillStyle = color; g.font = '11px JetBrains Mono, monospace'; g.fillText(px(v), W - 48, Y(v) + 4); };
-  line(s.hh, col('--accent'), true); line(s.e50, '#5B9BF0', true); if (ot) line(ot.sl, col('--sell'), true);
+  line(s.hh, col('--accent'), true); if (st > 0) line(st, col('--sell'), true);
   g.strokeStyle = col('--fg'); g.lineWidth = 1.8; g.beginPath();
   c.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke();
 }
@@ -540,27 +546,29 @@ function renderStats() {
       <div class="scroll-x"><table class="dtable"><thead><tr><th>Peraturan</th><th class="num">Trade</th><th class="num">Menang</th><th class="num">Purata</th><th class="num">PF</th><th class="num">Separuh 1</th><th class="num">Separuh 2</th></tr></thead><tbody>
       ${UJI[MK].rows.map(u => `<tr class="${u.ok ? 'good' : 'bad'}"><td style="white-space:normal;min-width:220px">${esc(u.n)}</td><td class="num">${u.t}</td><td class="num">${u.w}%</td><td class="num ${cls(u.avg)}">${u.avg > 0 ? '+' : ''}${u.avg.toFixed(2)}%</td><td class="num">${u.pf.toFixed(2)}</td><td class="num">${u.a}</td><td class="num">${u.b}</td></tr>`).join('')}</tbody></table></div>
       <p class="note">${esc(UJI[MK].nota)}</p>
-      <div class="scroll-x"><table class="dtable"><thead><tr>${TAHUN.map(y => `<th class="num">${y[0]}</th>`).join('')}</tr></thead><tbody><tr>${TAHUN.map(y => `<td class="num ${y[1].startsWith('-') ? 'neg' : 'pos'}">${y[1]}R</td>`).join('')}</tr></tbody></table></div>
+      <p class="cap" style="margin:0">PF setiap tahun, peraturan sekarang (merah = tahun rugi):</p>
+      <div class="scroll-x"><table class="dtable"><thead><tr>${TAHUN.map(y => `<th class="num">${y[0]}</th>`).join('')}</tr></thead><tbody><tr>${TAHUN.map(y => `<td class="num ${+y[1] < 1 ? 'neg' : 'pos'}">${y[1]}</td>`).join('')}</tr></tbody></table></div>
     </div>`;
 }
 
 function renderGuide() {
-  const ex = M.ex[0], sl = M.ex[1], z = saiz(ex, sl), up1 = ex * 1.15, up2 = ex * 1.5;
+  const ex = M.ex[0], sl = M.ex[1], z = saiz(ex, sl), top = ex * 1.6, up1 = top - (ex - sl);
   $('#v-guide').innerHTML = `
     <div><h1>Panduan</h1><p class="sub">Cara guna VK Saham, dalam 5 minit.</p></div>
     <div class="panel"><h2>Peraturan (sama setiap hari)</h2><ol>
       <li><b>BELI</b> bila harga tutup <b>atas paras tertinggi 52 minggu</b>, EMA50 atas EMA200, harga atas EMA200, dan saham aktif (≥ ${MK === 'us' ? 'US$200 juta' : M.cur + '1 juta'} sehari).</li>
       <li>Beli pada <b>harga buka esok</b>, hanya jika ≤ had beli (tutup + 0.5 ATR). Kalau buka lebih tinggi: <b>lepaskan</b>, jangan kejar.</li>
-      <li><b>Stop Loss</b> = 2 × ATR bawah harga beli. Letak terus selepas beli.</li>
-      <li><b>JUAL</b> bila harga tutup bawah <b>EMA50</b>. Tiada TP tetap: biar untung lari.</li></ol></div>
+      <li><b>Stop awal</b> = 10 × ATR bawah harga beli (biasanya 15-25%). Ia jauh supaya trend tidak terputus oleh turun naik biasa.</li>
+      <li><b>Trailing stop:</b> setiap petang, stop naik ke <b>harga tutup tertinggi sejak beli − 10 ATR</b>. Stop tidak pernah turun.</li>
+      <li><b>JUAL</b> bila harga jatuh menyentuh stop. Tiada TP tetap: biar untung lari.</li>
+      <li><b>Saiz:</b> modal tetap setiap saham. Bursa: RM1,000-5,000 (ujian: RM4,000-5,000 paling baik; RM1,000 hampir pulang modal kerana yuran).</li></ol></div>
     <div class="panel"><h2>Contoh dengan duit</h2>
-      <p style="margin:0">Modal ${rm(MODAL)}, risiko ${RISK}%. Signal: beli ${px(ex)}, SL ${px(sl)}.</p>
+      <p style="margin:0">Modal setiap saham ${rm(MODAL)}. Signal: beli ${px(ex)}, stop awal ${px(sl)}.</p>
       <div class="scroll-x"><table class="dtable"><thead><tr><th>Apa jadi</th><th class="num">Untung/rugi</th></tr></thead><tbody>
         <tr><td>Beli ${z ? (M.lot === 1 ? z.u + ' saham' : z.lot + ' lot (' + z.u + ' unit)') : 0}</td><td class="num">${z ? rm2(z.nilai) : '–'}</td></tr>
-        <tr><td>Kena SL ${px(sl)}</td><td class="num neg">−${z ? rm2(z.rugi) : '–'}</td></tr>
-        <tr><td>Naik, kemudian tutup bawah EMA50 di ${px(up1)}</td><td class="num pos">+${z ? rm2(z.u * (up1 - ex) - z.yur) : '–'}</td></tr>
-        <tr><td>Trend besar, jual di ${px(up2)}</td><td class="num pos">+${z ? rm2(z.u * (up2 - ex) - z.yur) : '–'}</td></tr></tbody></table></div>
-      <p class="cap" style="margin:0">${esc(M.feeNota)} Biasanya 5 rugi kecil, 1 untung besar.</p></div>
+        <tr><td style="white-space:normal">Jatuh terus, kena stop awal ${px(sl)}</td><td class="num neg">−${z ? rm2(z.rugi) : '–'}</td></tr>
+        <tr><td style="white-space:normal">Naik ke ${px(top)}, stop naik ke ${px(up1)}, kemudian kena stop</td><td class="num pos">+${z ? rm2(z.u * (up1 - ex) - z.yur) : '–'}</td></tr></tbody></table></div>
+      <p class="cap" style="margin:0">${esc(M.feeNota)} Dalam ujian, lebih kurang 1 daripada 3 trade untung; yang untung biasanya jauh lebih besar daripada yang rugi.</p></div>
     <div class="panel"><h2>Kenapa bukan peraturan dalam prompt?</h2>
       <p style="margin:0">Prompt "penganalisis ekuiti" anda kami tukar kepada peraturan tepat (EMA20/50, RSI 50-70, breakout atau pullback, SL teknikal, TP 1:2, penny lonjakan volum) dan uji pada 960 saham, 10 tahun. <b>Semua 5 versi rugi</b> (PF 0.62-0.93). Sebabnya: TP 1:2 memotong trend yang besar, dan yuran 0.5% makan untung kecil. Lihat tab Prestasi.</p>
       <p style="margin:0">Format jawapan prompt (klasifikasi, 3 kekuatan, 2 risiko, pelan harga) dikekalkan dalam halaman setiap saham, tetapi dikira dari data, bukan tekaan AI.</p></div>
