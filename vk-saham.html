@@ -114,6 +114,12 @@ h3{font-size:15px;font-weight:600}
 .sig:hover{border-color:var(--accent)}
 .sig .head{display:flex;align-items:center;gap:10px}
 .sig .head .grow{flex:1;min-width:0}
+details summary{cursor:pointer;font-weight:600;font-size:14px;padding:6px 0}
+.tier .box{padding:8px 10px}
+.tier .box .k{font-size:10px;letter-spacing:.05em}
+.tier .box .p{font-size:15px}
+.tier .box small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.tier .box small.pos{color:var(--buy)} .tier .box small.neg{color:var(--sell)}
 .calc{font-size:13px;background:var(--surface-2);border-radius:8px;padding:9px 11px;margin:0;color:var(--fg)}
 .calc b{font-family:var(--font-mono);font-weight:600}
 .chart-box{position:relative;width:100%;height:240px;background:var(--surface-2);border-radius:10px;overflow:hidden}
@@ -331,6 +337,7 @@ function renderHome() {
     </div>
     <div class="tiles">
       <a class="tile" href="#list" data-cat="hampir"><b>Hampir breakout</b><span>${hampir.length} saham ≤3% dari paras tertinggi 52 minggu</span></a>
+      ${D.c2 ? `<a class="tile" href="#signals"><b>Signal 2: Saham Tenang</b><span>${(D.c2.pegang || []).length} dipegang · tukar sebulan sekali${D.c2.esok && ((D.c2.beli || []).length || (D.c2.pegang || []).some(p => p.jual)) ? ' · <b class="neg">tukar esok</b>' : ''}</span></a>` : ''}
       <a class="tile" href="#list" data-cat="blue"><b>Blue Chip</b><span>30 syarikat terbesar, status trend</span></a>
       <a class="tile" href="#list" data-cat="dividen"><b>Pelaburan Dividen</b><span>10 saham dividen tinggi + stabil</span></a>
       ${M.ipo ? `<a class="tile" href="#list" data-cat="ipo"><b>IPO ACE</b><span>IPO baru + apa kata sejarah</span></a>`
@@ -356,6 +363,17 @@ function bindSettings(redraw) {
   if (m) m.addEventListener('change', () => { MODAL = Math.max(SAIZ_MIN, +m.value || M.modal); store.set('saiz-' + MK, MODAL); redraw(); });
 }
 
+/* Jual 1 (4 ATR, risiko kurang) / Jual 2 (8 ATR, sederhana) / Jual 3 (10 ATR, risiko tinggi, rekod rasmi) */
+function tierHtml(t, isNew) {
+  const L = [
+    ['Jual 1', 'risiko kurang', t.s1, t.x1, t.d1],
+    ['Jual 2', 'sederhana', t.s2, t.x2, t.d2],
+    ['Jual 3', 'risiko tinggi', isNew ? t.sl : (t.stop || t.sl), t.status === 'SELESAI' ? t.exit : null, t.keluar]];
+  return `<div class="three tier">${L.map(([a, b, s, x, d]) => x != null
+    ? `<div class="box"><div class="k">${a} · ${b}</div><div class="p ${cls(x / t.entry - 1)}">✓ ${px(x)}</div><small class="${cls(x / t.entry - 1)}">kena ${esc(d)} (${pc(x / t.entry - 1)})</small></div>`
+    : `<div class="box sell"><div class="k">${a} · ${b}</div><div class="p">${s > 0 ? px(s) : '–'}</div><small>${isNew ? 'stop awal' : 'stop sekarang'}${s > 0 && !isNew ? ' (' + pc(s / t.harga - 1) + ')' : ''}</small></div>`).join('')}</div>`;
+}
+
 function sigCard(t) {
   const s = BY[t.k] || {}, isNew = t.status === 'BARU';
   const entry = isNew ? t.close : t.entry, now = t.harga;
@@ -363,13 +381,39 @@ function sigCard(t) {
   return `<a class="sig" href="#s-${esc(t.k)}"><div class="head">${coin(t)}<div class="grow"><div class="t" style="font-family:var(--font-display);font-weight:600">${esc(t.n)}</div>
       <div class="s" style="font-size:12.5px;color:var(--muted)">${esc(t.k)} · isyarat ${esc(t.sig)}${isNew ? '' : ' · beli ' + esc(t.masuk)}</div></div>
       <span class="st ${t.status}">${isNew ? 'BELI' : t.status}</span></div>
-    <div class="three">
+    <div class="two">
       <div class="box buy"><div class="k">${isNew ? 'Had beli esok' : 'Harga beli'}</div><div class="p">${isNew ? '≤ ' + px(t.buyMax) : px(t.entry)}</div></div>
-      <div class="box sell"><div class="k">${isNew ? 'Stop awal ≈' : 'Stop sekarang'}</div><div class="p">${px(isNew ? t.sl : (t.stop || t.sl))}</div></div>
-      <div class="box"><div class="k">${isNew ? 'Jual bila' : 'Sekarang'}</div><div class="p">${isNew ? 'sentuh stop' : px(now) + ' <small class="' + cls(pl) + '">' + pc(pl) + '</small>'}</div></div>
+      <div class="box"><div class="k">${isNew ? 'Jual bila' : 'Sekarang'}</div><div class="p">${isNew ? 'sentuh stop pilihan' : px(now) + ' <small class="' + cls(pl) + '">' + pc(pl) + '</small>'}</div></div>
     </div>
-    ${isNew ? calcHtml(t.close, t.sl) : `<p class="calc">Trailing stop: setiap hari stop naik ke <b>harga tutup tertinggi sejak beli − 10 ATR</b>, tidak pernah turun. Sekarang ${px(t.stop || t.sl)} (${pc((t.stop || t.sl) / now - 1)} dari harga). Jual bila harga jatuh menyentuh stop.${t.stop > t.entry ? ' <b class="pos">Stop sudah atas harga beli: untung dikunci.</b>' : ''}</p>`}
+    ${tierHtml(t, isNew)}
+    ${isNew ? calcHtml(t.close, t.sl) : `<p class="calc">Setiap stop naik setiap hari ke <b>harga tutup tertinggi sejak beli − k ATR</b> dan tidak pernah turun. Pilih satu tahap (atau jual 1/3 di setiap tahap). Rekod rasmi VK = Jual 3.${t.stop > t.entry ? ' <b class="pos">Stop Jual 3 sudah atas harga beli: untung dikunci.</b>' : ''}</p>`}
   </a>`;
+}
+
+/* Signal 2 (Bursa sahaja): Saham Tenang = rotasi volatiliti rendah + SMA200 (C2b, SecondTest 2026-11-16).
+   Ujian 10 tahun, RM2,000 setiap saham: PF 1.97, 125 trade, 8/10 tahun untung, korelasi dengan breakout 0.02, ≈ +4-5%/thn termasuk dividen. */
+function c2Html() {
+  const c = D.c2;
+  if (!c) return '';
+  const P = c.pegang || [], B = c.beli || [], R = c.senarai || [], X = c.trades || [];
+  const jual = P.filter(p => p.jual), win = X.filter(t => t.ret > 0).length, avg = X.length ? X.reduce((a, t) => a + t.ret, 0) / X.length : 0;
+  const lot = px0 => { const z = saiz(px0, 0); return z && z.u ? `${z.lot} lot ≈ ${rm(z.nilai)}` : 'lebih 1 lot daripada modal'; };
+  const link = (k, n) => BY[k] ? `<a href="#s-${esc(k)}">${esc(short(n))}</a>` : esc(short(n));
+  return `<div class="panel" id="c2"><div class="row between"><h2>Signal 2: Saham Tenang</h2><span class="pill">tukar sebulan sekali</span></div>
+    <p class="cap" style="margin:0">5 saham besar yang harganya paling kurang bergerak, dipegang hanya bila harga atas purata 200 hari. Untung kecil tetapi tidak jatuh serentak dengan signal breakout. Data ${esc(c.tarikh)}.</p>
+    ${c.esok && (jual.length || B.length) ? `<p class="banner"><b>Hujung bulan: tukar esok pada harga buka.</b>${jual.length ? ' JUAL: ' + jual.map(p => esc(short(p.n))).join(', ') + '.' : ''}${B.length ? ' BELI: ' + B.map(b => esc(short(b.n)) + ' (' + lot(b.harga) + ')').join(', ') + '.' : ''}</p>`
+      : c.esok ? `<p class="note">Hujung bulan: tiada pertukaran. Kekalkan semua.</p>` : `<p class="note">Tiada tindakan hari ini. Semakan seterusnya: hari dagangan terakhir bulan ini (notifikasi akan keluar petang itu).</p>`}
+    <div class="scroll-x"><table class="dtable"><thead><tr><th>Sedang pegang (${P.length}/5)</th><th class="num">Beli</th><th class="num">Sekarang</th><th class="num">Hasil</th><th>Tindakan</th></tr></thead><tbody>
+      ${P.length ? P.map(p => `<tr><td>${link(p.k, p.n)}<br><span class="cap" style="margin:0">${esc(p.k)} · ${esc(p.masuk)}</span></td><td class="num">${px(p.entry)}</td><td class="num">${px(p.harga)}</td><td class="num ${cls(p.ret)}">${pc(p.ret)}</td><td>${p.jual ? '<span class="st SELESAI">JUAL esok</span>' : '<span class="st PEGANG">PEGANG</span>'}</td></tr>`).join('')
+        : '<tr><td colspan="5">Tiada: semua saham tenang berada bawah purata 200 hari. Simpan tunai.</td></tr>'}</tbody></table></div>
+    <p class="calc">Baru mula? Tunggu hujung bulan, kemudian beli saham yang masih bertanda PEGANG atau BELI pada harga buka esoknya, modal sama setiap satu (${rm(MODAL)} sekarang; ujian guna RM2,000). Tiada stop loss harian: jual hanya bila halaman ini tulis JUAL pada hujung bulan.</p>
+    <details><summary>15 saham paling tenang sekarang</summary>
+      <div class="scroll-x"><table class="dtable"><thead><tr><th>#</th><th>Saham</th><th class="num">Harga</th><th class="num">Gerak/thn</th><th class="num">Purata 200</th><th>Layak</th></tr></thead><tbody>
+      ${R.map((r, i) => `<tr><td>${i + 1}</td><td>${link(r.k, r.n)}</td><td class="num">${px(r.harga)}</td><td class="num">±${r.vol}%</td><td class="num">${px(r.sma)}</td><td>${r.ok ? '<span class="pos">ya</span>' : '<span class="neg">bawah purata</span>'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="cap" style="margin:0">Dipilih daripada 100 saham paling aktif, harga ≥ RM1. Saham dijual bila keluar daripada 15 ini atau harga jatuh bawah purata 200 hari.</p></details>
+    <div class="strip"><div><div class="k">Trade selesai</div><div class="v">${X.length}</div></div><div><div class="k">Menang</div><div class="v">${X.length ? (win / X.length * 100).toFixed(0) + '%' : '–'}</div></div>
+      <div><div class="k">Purata / trade</div><div class="v ${cls(avg)}">${X.length ? pc(avg, 2) : '–'}</div></div><div><div class="k">Sejak</div><div class="v" style="font-size:14px">${esc(c.mula || '–')}</div></div></div>
+    <p class="note">Main semula dari harga sebenar sejak ${esc(c.mula)}, selepas kos 0.5%, belum campur dividen. Ujian 10 tahun (RM2,000 × 5 saham, yuran Moomoo, dengan dividen): PF 1.97, 125 trade, untung 8 daripada 10 tahun, tetapi hanya lebih kurang <b>+4-5% setahun</b>. Ini pelengkap yang stabil, bukan cara cepat kaya. Bukan nasihat kewangan.</p></div>`;
 }
 
 function renderSignals() {
@@ -384,6 +428,7 @@ function renderSignals() {
     <h2>Sedang pegang (${pegang.length})</h2>
     <p class="cap" style="margin:0">Trade yang strategi masih pegang (termasuk yang bermula sebelum rekod langsung).</p>
     ${pegang.length ? pegang.map(sigCard).join('') : `<div class="empty"><b>Tiada kedudukan terbuka</b></div>`}
+    ${c2Html()}
     ${lepas.length ? `<div class="panel"><h2>Terlepas baru-baru ini</h2><p class="cap" style="margin:0">Harga buka melonjak atas had beli, jadi strategi tidak beli. Jangan kejar.</p><div class="list">${lepas.map(t => BY[t.k] ? itemHtml(BY[t.k], 'isyarat ' + t.sig + ', had ' + px(t.buyMax)) : '').join('')}</div></div>` : ''}`;
   bindSettings(renderSignals);
 }
@@ -562,6 +607,20 @@ function renderGuide() {
       <li><b>Trailing stop:</b> setiap petang, stop naik ke <b>harga tutup tertinggi sejak beli − 10 ATR</b>. Stop tidak pernah turun.</li>
       <li><b>JUAL</b> bila harga jatuh menyentuh stop. Tiada TP tetap: biar untung lari.</li>
       <li><b>Saiz:</b> modal tetap setiap saham. Bursa: RM1,000-5,000 (ujian: RM4,000-5,000 paling baik; RM1,000 hampir pulang modal kerana yuran).</li></ol></div>
+    <div class="panel"><h2>Jual 1 / Jual 2 / Jual 3</h2>
+      <p style="margin:0">Setiap saham ada tiga stop. Pilih satu ikut tahap risiko, atau jual 1/3 di setiap tahap. Ujian 10 tahun Bursa, RM1,000-5,000 setiap saham, yuran Moomoo + spread:</p>
+      <div class="scroll-x"><table class="dtable"><thead><tr><th>Tahap</th><th class="num">Stop</th><th class="num">Pegang</th><th class="num">Menang</th><th class="num">Purata / trade</th><th class="num">Tanpa 2020</th><th class="num">Akaun RM20k</th></tr></thead><tbody>
+        <tr><td>Jual 1 · risiko kurang</td><td class="num">4 ATR</td><td class="num">~10 hari</td><td class="num">33%</td><td class="num pos">+RM35</td><td class="num pos">+RM30,290</td><td class="num">+4.4%/thn</td></tr>
+        <tr><td>Jual 2 · sederhana</td><td class="num">8 ATR</td><td class="num">~31 hari</td><td class="num">34%</td><td class="num pos">+RM107</td><td class="num pos">+RM78,516</td><td class="num">+4.6%/thn</td></tr>
+        <tr class="good"><td>Jual 3 · risiko tinggi (rasmi)</td><td class="num">10 ATR</td><td class="num">~44 hari</td><td class="num">35%</td><td class="num pos">+RM161</td><td class="num pos">+RM37,938</td><td class="num">+8.5%/thn</td></tr>
+        <tr><td>Bahagi 3 (1/3 setiap tahap)</td><td class="num">4/8/10</td><td class="num">–</td><td class="num">35%</td><td class="num pos">+RM100</td><td class="num pos">+RM44,614</td><td class="num">+7.6%/thn</td></tr></tbody></table></div>
+      <p class="note">"Risiko kurang" bermaksud setiap trade yang salah rugi lebih sedikit dan wang terikat lebih singkat. Ia BUKAN bermaksud akaun lebih selamat: dalam akaun RM20k, ketiga-tiga tahap pernah jatuh lebih kurang −49% hingga −52%. Untung keseluruhan paling tinggi = Jual 3, sebab ia tidak memotong saham yang naik besar. Purata = semua isyarat dengan RM5,000 setiap saham.</p></div>
+    ${MK === 'my' ? `<div class="panel"><h2>Signal 2: Saham Tenang</h2><ol>
+      <li>Pada <b>hari dagangan terakhir setiap bulan</b>, ambil 100 saham Bursa paling aktif (harga ≥ RM1) dan susun ikut siapa paling kurang bergerak dalam setahun.</li>
+      <li><b>BELI</b> (harga buka esok) sehingga 5 saham paling tenang yang harganya <b>atas purata 200 hari</b>. Modal sama setiap satu.</li>
+      <li><b>JUAL</b> (harga buka hari pertama bulan baharu) bila saham keluar daripada 15 paling tenang, atau harga tutup bawah purata 200 hari. Tiada stop loss harian.</li>
+      <li>Kalau tak cukup 5 yang layak, baki disimpan tunai.</li></ol>
+      <p class="note">Kami uji 4 idea swing kedua pada 10 tahun data Bursa. Tiga rugi (beli saham jatuh teruk PF 0.58-0.72, beli dip dalam trend naik PF 0.67, ikut lonjakan keputusan suku tahun PF 0.60). Hanya ini yang lulus: PF 1.97, untung 8 daripada 10 tahun, dan hampir tiada kaitan dengan signal breakout (korelasi 0.02). Kelemahannya: untung kecil, lebih kurang +4-5% setahun termasuk dividen.</p></div>` : ''}
     <div class="panel"><h2>Contoh dengan duit</h2>
       <p style="margin:0">Modal setiap saham ${rm(MODAL)}. Signal: beli ${px(ex)}, stop awal ${px(sl)}.</p>
       <div class="scroll-x"><table class="dtable"><thead><tr><th>Apa jadi</th><th class="num">Untung/rugi</th></tr></thead><tbody>
