@@ -1,1 +1,1 @@
-{"pasaran":"SG","tarikhData":"2026-11-13","t":[{"k":"BVA","n":"Top Glove","sig":"2026-10-15","status":"PEGANG","buyMax":0.2888,"sl":0.2698,"entry":0.285,"exit":null,"ret":0,"sebab":""}]}
+{"pasaran":"SG","tarikhData":"2026-11-13","t":[{"k":"HBND","n":"Bank of China","sig":"2026-09-01","status":"SELESAI","buyMax":0.97,"sl":0.8658,"stop":0.9479,"entry":0.965,"exit":0.9479,"ret":-0.02122,"sebab":"Stop Loss"},{"k":"BVA","n":"Top Glove","sig":"2026-10-15","status":"PEGANG","buyMax":0.2888,"sl":0.2088,"stop":0.2494,"entry":0.285,"exit":null,"ret":0,"sebab":""}]}
