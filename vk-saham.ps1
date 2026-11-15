@@ -8,14 +8,23 @@
 #   ATR = purata Wilder |tutup - tutup semalam| 14 hari (sama seperti enjin).
 # Peraturan swing/penny daripada prompt pengguna RUGI dalam ujian yang sama, jadi tidak dijadikan signal.
 #
-# Ujian luar talian: ./vk-saham.ps1 -Had 10 -Keluar uji.json
-param([int]$Had = 0, [string]$Keluar = '', [string]$Mula = '2026-11-16')
+# PASARAN (2026-11-15): MY penuh. SG dan US berlabel UJIAN kerana rekod 10 tahun lemah:
+#   SG PF 1.23 (rugi 2017-2024), US saham besar >= US$200j sehari PF 1.12 (semua saham US PF 0.99, jadi tidak dipakai).
+#
+# Ujian luar talian: ./vk-saham.ps1 -Pasaran SG -Had 10 -Keluar uji.json
+param([ValidateSet('MY', 'SG', 'US')][string]$Pasaran = 'MY', [int]$Had = 0, [string]$Keluar = '', [string]$Mula = '')
 $ErrorActionPreference = 'Stop'
 $dir = $PSScriptRoot
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $myt = [DateTimeOffset]::UtcNow.ToOffset([TimeSpan]::FromHours(8))
-$outFile = if ($Keluar) { $Keluar } else { Join-Path $dir 'vk-saham.json' }
-$COST = 0.005; $SLATR = 2.0; $CHASE = 0.5; $HIGH = 250; $NCLOSE = 180
+$CFG = @{
+  MY = @{ suf = '.KL'; list = 'senarai-vk-saham.txt';    out = 'vk-saham.json';    noti = 'vk-saham-noti.json';    cost = 0.005;  minVal = 1e6; minPx = 0.20; idx = '%5EKLSE'; idxN = 'KLCI';    mula = '2026-11-16' }
+  SG = @{ suf = '.SI'; list = 'senarai-vk-saham-sg.txt'; out = 'vk-saham-sg.json'; noti = 'vk-saham-sg-noti.json'; cost = 0.0035; minVal = 1e6; minPx = 0.20; idx = '%5ESTI';  idxN = 'STI';     mula = '2026-11-17' }
+  US = @{ suf = '';    list = 'senarai-vk-saham-us.txt'; out = 'vk-saham-us.json'; noti = 'vk-saham-us-noti.json'; cost = 0.001;  minVal = 2e8; minPx = 5.0;  idx = '%5EGSPC'; idxN = 'S&P 500'; mula = '2026-11-17' }
+}[$Pasaran]
+if (-not $Mula) { $Mula = $CFG.mula }
+$outFile = if ($Keluar) { $Keluar } else { Join-Path $dir $CFG.out }
+$COST = $CFG.cost; $SLATR = 2.0; $CHASE = 0.5; $HIGH = 250; $NCLOSE = 180
 
 function Get-Ema([double[]]$c, [int]$p) {
   $o = New-Object double[] $c.Length
@@ -50,10 +59,16 @@ function Get-Yahoo($sym) {
   $d = New-Object System.Collections.Generic.List[string]; $o = New-Object System.Collections.Generic.List[double]
   $h = New-Object System.Collections.Generic.List[double]; $l = New-Object System.Collections.Generic.List[double]
   $c = New-Object System.Collections.Generic.List[double]; $v = New-Object System.Collections.Generic.List[double]
+  # Tarikh ikut zon waktu bursa itu sendiri (US = New York). Candle sesi yang belum tamat diabaikan.
+  $gmt = if ($res.meta.gmtoffset) { [int]$res.meta.gmtoffset } else { 28800 }
+  $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+  $sesi = $res.meta.currentTradingPeriod.regular
   for ($i = 0; $i -lt $res.timestamp.Count; $i++) {
     if ($null -eq $q.open[$i] -or $null -eq $q.high[$i] -or $null -eq $q.low[$i] -or $null -eq $q.close[$i]) { continue }
-    $dt = [DateTimeOffset]::FromUnixTimeSeconds($res.timestamp[$i]).ToOffset([TimeSpan]::FromHours(8))
-    if ($dt.Date -eq $myt.Date -and $myt.Hour -lt 17) { continue }   # candle hari ini belum lengkap
+    $ts = [long]$res.timestamp[$i]
+    $dt = [DateTimeOffset]::FromUnixTimeSeconds($ts).ToOffset([TimeSpan]::FromSeconds($gmt))
+    if ($sesi -and $now -lt [long]$sesi.end -and $ts -ge [long]$sesi.start - 43200) { continue }   # sesi hari ini belum tutup
+    if ($gmt -eq 28800 -and $dt.Date -eq $myt.Date -and $myt.Hour -lt 17) { continue }           # MY/SG: sebelum 5 petang
     $ds = $dt.ToString('yyyy-MM-dd')
     if ($d.Count -gt 0 -and $d[$d.Count - 1] -eq $ds) { continue }
     $d.Add($ds); $o.Add([double]$q.open[$i]); $h.Add([double]$q.high[$i]); $l.Add([double]$q.low[$i]); $c.Add([double]$q.close[$i])
@@ -78,7 +93,7 @@ function Test-Pelik([double[]]$c) {
 
 # ---------- senarai saham ----------
 $list = @()
-foreach ($row in Get-Content (Join-Path $dir 'senarai-vk-saham.txt') -Encoding UTF8) {
+foreach ($row in Get-Content (Join-Path $dir $CFG.list) -Encoding UTF8) {
   if (-not $row.Trim() -or $row.StartsWith('#')) { continue }
   $p = $row.Split('|')
   $list += [pscustomobject]@{ k = $p[0]; n = $p[1]; mc = [double]::Parse($p[2], $inv); eps = $(if ($p[3]) { [double]::Parse($p[3], $inv) } else { [double]::NaN }) }
@@ -88,13 +103,13 @@ if ($Had -gt 0) { $list = $list | Select-Object -First $Had }
 # ---------- KLCI ----------
 $klciJson = 'null'
 try {
-  $kd = Get-Yahoo '%5EKLSE'; $ke = Get-Ema $kd.c 200; $n = $kd.c.Length
+  $kd = Get-Yahoo $CFG.idx; $ke = Get-Ema $kd.c 200; $n = $kd.c.Length
   $kc = New-Object System.Collections.Generic.List[string]
   for ($i = [math]::Max(0, $n - $NCLOSE); $i -lt $n; $i++) { $kc.Add((N $kd.c[$i] '0.##')) }
-  $klciJson = '{"tarikh":' + (Q $kd.d[$n - 1]) + ',"tutup":' + (N $kd.c[$n - 1] '0.##') + ',"semalam":' + (N $kd.c[$n - 2] '0.##') +
+  $klciJson = '{"nama":' + (Q $CFG.idxN) + ',"tarikh":' + (Q $kd.d[$n - 1]) + ',"tutup":' + (N $kd.c[$n - 1] '0.##') + ',"semalam":' + (N $kd.c[$n - 2] '0.##') +
     ',"ema200":' + (N $ke[$n - 1] '0.##') + ',"naik":' + $(if ($kd.c[$n - 1] -gt $ke[$n - 1]) { 'true' } else { 'false' }) + ',"c":[' + ($kc -join ',') + ']}'
-  Write-Host "OK KLCI $($kd.d[$n - 1]) $($kd.c[$n - 1])"
-} catch { Write-Host "GAGAL KLCI: $($_.Exception.Message)" }
+  Write-Host "OK $($CFG.idxN) $($kd.d[$n - 1]) $($kd.c[$n - 1])"
+} catch { Write-Host "GAGAL $($CFG.idxN): $($_.Exception.Message)" }
 
 # ---------- setiap saham ----------
 $stocks = New-Object System.Collections.Generic.List[string]
@@ -103,7 +118,7 @@ $done = @{}; $fail = @(); $lastDate = ''
 $since = $myt.AddDays(-400).ToString('yyyy-MM-dd')
 foreach ($s in $list) {
   try {
-    $y = Get-Yahoo "$($s.k).KL"
+    $y = Get-Yahoo "$($s.k)$($CFG.suf)"
     $c = $y.c; $n = $c.Length
     if ($n -lt $HIGH + 60) { throw "data sedikit ($n hari)" }
     if (Test-Pelik $c) { throw 'data pelik (lonjakan harga salah)' }
@@ -123,7 +138,7 @@ foreach ($s in $list) {
     }
     # jalankan strategi (satu trade pada satu masa), simpan trade yang isyaratnya dalam ~13 bulan lepas
     for ($i = $HIGH; $i -lt $n; $i++) {
-      if ($c[$i] -lt 0.20 -or -not ($val[$i] -ge 1000000) -or [double]::IsNaN($e200[$i]) -or [double]::IsNaN($atr[$i])) { continue }
+      if ($c[$i] -lt $CFG.minPx -or -not ($val[$i] -ge $CFG.minVal) -or [double]::IsNaN($e200[$i]) -or [double]::IsNaN($atr[$i])) { continue }
       if (-not ($e50[$i] -gt $e200[$i] -and $c[$i] -gt $e200[$i] -and $c[$i] -gt $hh[$i])) { continue }
       $t = [ordered]@{ k = $s.k; n = $s.n; sig = $y.d[$i]; close = $c[$i]; atr = $atr[$i]; buyMax = $c[$i] + $CHASE * $atr[$i]; sl = $c[$i] - $SLATR * $atr[$i]
         masuk = $null; entry = $null; keluar = $null; exit = $null; sebab = ''; status = 'BARU'; ret = $null; harga = $c[$n - 1] }
@@ -189,14 +204,14 @@ foreach ($t in $trades) {
 }
 foreach ($t in $keep) { $tj.Add(($t | ConvertTo-Json -Compress -Depth 3)) }
 
-$json = '{"dikemas":' + (Q $myt.ToString('yyyy-MM-dd HH:mm')) + ',"tarikhData":' + (Q $lastDate) + ',"mula":' + (Q $Mula) +
+$json = '{"pasaran":' + (Q $Pasaran) + ',"dikemas":' + (Q $myt.ToString('yyyy-MM-dd HH:mm')) + ',"tarikhData":' + (Q $lastDate) + ',"mula":' + (Q $Mula) +
   ',"kos":' + (N $COST) + ',"gagal":[' + (($fail | ForEach-Object { Q $_ }) -join ',') + '],"klci":' + $klciJson +
   ',"saham":[' + ($stocks -join ',') + '],"trades":[' + ($tj -join ',') + ']}'
 [IO.File]::WriteAllText($outFile, $json, (New-Object Text.UTF8Encoding $false))
 
 # Fail kecil untuk notifikasi app Android (VkWorker.semakSaham): signal baru, yang sedang dipegang, dan yang selesai/terlepas dalam 14 hari
 if ($true) {
-  $notiFile = if ($Keluar) { "$Keluar.noti.json" } else { Join-Path $dir 'vk-saham-noti.json' }
+  $notiFile = if ($Keluar) { "$Keluar.noti.json" } else { Join-Path $dir $CFG.noti }
   $cut = $myt.AddDays(-14).ToString('yyyy-MM-dd')
   $nj = New-Object System.Collections.Generic.List[string]
   foreach ($t in $trades) {
@@ -205,6 +220,6 @@ if ($true) {
     $nj.Add('{"k":' + (Q $t.k) + ',"n":' + (Q $t.n) + ',"sig":' + (Q $t.sig) + ',"status":' + (Q $t.status) + ',"buyMax":' + (N $t.buyMax) +
       ',"sl":' + (N $t.sl) + ',"entry":' + (N $t.entry) + ',"exit":' + (N $t.exit) + ',"ret":' + (N $t.ret '0.#####') + ',"sebab":' + (Q $t.sebab) + '}')
   }
-  [IO.File]::WriteAllText($notiFile,'{"tarikhData":' + (Q $lastDate) + ',"t":[' + ($nj -join ',') + ']}', (New-Object Text.UTF8Encoding $false))
+  [IO.File]::WriteAllText($notiFile,'{"pasaran":' + (Q $Pasaran) + ',"tarikhData":' + (Q $lastDate) + ',"t":[' + ($nj -join ',') + ']}', (New-Object Text.UTF8Encoding $false))
 }
 Write-Host "Siap: $($stocks.Count) saham, $($trades.Count) trade, gagal $($fail.Count). Data $lastDate -> $outFile"
