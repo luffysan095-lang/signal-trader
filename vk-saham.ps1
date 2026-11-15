@@ -4,12 +4,16 @@
 # STRATEGI (sama dengan Engine.java, diuji 10 tahun, 960 saham, kos 0.5%, PromptTest 2026-11-15):
 #   BELI bila harga tutup > tutup tertinggi 250 hari sebelum (52 minggu), EMA50 > EMA200, tutup > EMA200,
 #   nilai dagangan purata 50 hari >= RM1 juta, harga >= RM0.20.
-#   Beli harga BUKA esok hanya jika <= tutup + 0.5 ATR. SL = 2 ATR. JUAL bila tutup bawah EMA50 atau SL kena.
+#   Beli harga BUKA esok hanya jika <= tutup + 0.5 ATR.
+#   KELUAR (ditukar 2026-11-15 atas permintaan pengguna, ExitTest/SizeTest varian D): TRAILING STOP 10 ATR.
+#     Stop awal = harga beli - 10 ATR. Setiap hari selepas semakan: stop = max(stop, tutup tertinggi sejak beli - 10 ATR hari itu).
+#     JUAL bila harga rendah menyentuh stop (isi pada min(buka, stop)). Tiada jualan EMA50, tiada TP.
+#     Sebab: dengan RM4k-5k setiap saham, D masih untung tanpa 2020 (+RM41k semua isyarat Bursa), versi lama (2 ATR + EMA50) rugi.
 #   ATR = purata Wilder |tutup - tutup semalam| 14 hari (sama seperti enjin).
 # Peraturan swing/penny daripada prompt pengguna RUGI dalam ujian yang sama, jadi tidak dijadikan signal.
 #
-# PASARAN (2026-11-15): MY penuh. SG dan US berlabel UJIAN kerana rekod 10 tahun lemah:
-#   SG PF 1.23 (rugi 2017-2024), US saham besar >= US$200j sehari PF 1.12 (semua saham US PF 0.99, jadi tidak dipakai).
+# PASARAN (2026-11-15): MY penuh. SG dan US berlabel UJIAN kerana rekod 10 tahun lemah
+#   (dengan trailing 10 ATR: SG PF 1.35 tetapi rugi separuh pertama, US saham besar >= US$200j sehari PF 1.27).
 #
 # Ujian luar talian: ./vk-saham.ps1 -Pasaran SG -Had 10 -Keluar uji.json
 param([ValidateSet('MY', 'SG', 'US')][string]$Pasaran = 'MY', [int]$Had = 0, [string]$Keluar = '', [string]$Mula = '')
@@ -24,7 +28,7 @@ $CFG = @{
 }[$Pasaran]
 if (-not $Mula) { $Mula = $CFG.mula }
 $outFile = if ($Keluar) { $Keluar } else { Join-Path $dir $CFG.out }
-$COST = $CFG.cost; $SLATR = 2.0; $CHASE = 0.5; $HIGH = 250; $NCLOSE = 180
+$COST = $CFG.cost; $SLATR = 10.0; $CHASE = 0.5; $HIGH = 250; $NCLOSE = 180
 
 function Get-Ema([double[]]$c, [int]$p) {
   $o = New-Object double[] $c.Length
@@ -141,16 +145,21 @@ foreach ($s in $list) {
       if ($c[$i] -lt $CFG.minPx -or -not ($val[$i] -ge $CFG.minVal) -or [double]::IsNaN($e200[$i]) -or [double]::IsNaN($atr[$i])) { continue }
       if (-not ($e50[$i] -gt $e200[$i] -and $c[$i] -gt $e200[$i] -and $c[$i] -gt $hh[$i])) { continue }
       $t = [ordered]@{ k = $s.k; n = $s.n; sig = $y.d[$i]; close = $c[$i]; atr = $atr[$i]; buyMax = $c[$i] + $CHASE * $atr[$i]; sl = $c[$i] - $SLATR * $atr[$i]
-        masuk = $null; entry = $null; keluar = $null; exit = $null; sebab = ''; status = 'BARU'; ret = $null; harga = $c[$n - 1] }
-      if ($i + 1 -ge $n) { if ($y.d[$i] -ge $since) { $trades.Add($t) }; break }
+        stop = $c[$i] - $SLATR * $atr[$i]; masuk = $null; entry = $null; keluar = $null; exit = $null; sebab = ''; status = 'BARU'; ret = $null; harga = $c[$n - 1] }
+      if ($i + 1 -ge $n) { if ($t.sl -gt 0 -and $y.d[$i] -ge $since) { $trades.Add($t) }; break }
       $open = $y.o[$i + 1]
       if ($open -gt $t.buyMax) { $t.status = 'TERLEPAS'; $t.sebab = 'Harga buka melepasi had beli'; if ($y.d[$i] -ge $since) { $trades.Add($t) }; continue }
-      $t.masuk = $y.d[$i + 1]; $t.entry = $open; $t.sl = [math]::Min($t.sl, $open - $SLATR * $atr[$i])
+      $stop = $open - $SLATR * $atr[$i]
+      if ($stop -le 0) { continue }   # sama seperti ExitTest: isyarat tanpa stop yang sah dilangkau
+      $t.masuk = $y.d[$i + 1]; $t.entry = $open; $t.sl = $stop
+      $top = $open
       $j = $i + 1
       for (; $j -lt $n; $j++) {
-        if ($y.l[$j] -le $t.sl) { $t.exit = [math]::Min($y.o[$j], $t.sl); $t.sebab = 'Stop Loss'; break }
-        if ($c[$j] -lt $e50[$j]) { $t.exit = $c[$j]; $t.sebab = 'Tutup bawah EMA50'; break }
+        if ($y.l[$j] -le $stop) { $t.exit = [math]::Min($y.o[$j], $stop); $t.sebab = $(if ($t.exit -gt $open) { 'Trailing stop (untung)' } else { 'Stop Loss' }); break }
+        # stop dinaikkan selepas semakan hari ini, untuk dipakai esok
+        $top = [math]::Max($top, $c[$j]); $stop = [math]::Max($stop, $top - $SLATR * $atr[$j])
       }
+      $t.stop = $stop
       if ($j -lt $n) { $t.keluar = $y.d[$j]; $t.status = 'SELESAI'; $t.ret = $t.exit / $t.entry - 1 - $COST }
       else { $t.status = 'PEGANG'; $t.ret = $c[$n - 1] / $t.entry - 1 }
       if ($y.d[$i] -ge $since) { $trades.Add($t) }
@@ -198,7 +207,7 @@ $keep = @($old | Where-Object { $_ -and $_.sig -ge $Mula -and -not $done.Contain
 $tj = New-Object System.Collections.Generic.List[string]
 foreach ($t in $trades) {
   $tj.Add('{"k":' + (Q $t.k) + ',"n":' + (Q $t.n) + ',"sig":' + (Q $t.sig) + ',"close":' + (N $t.close) + ',"atr":' + (N $t.atr) +
-    ',"buyMax":' + (N $t.buyMax) + ',"sl":' + (N $t.sl) + ',"masuk":' + $(if ($t.masuk) { Q $t.masuk } else { 'null' }) + ',"entry":' + (N $t.entry) +
+    ',"buyMax":' + (N $t.buyMax) + ',"sl":' + (N $t.sl) + ',"stop":' + (N $t.stop) + ',"masuk":' + $(if ($t.masuk) { Q $t.masuk } else { 'null' }) + ',"entry":' + (N $t.entry) +
     ',"keluar":' + $(if ($t.keluar) { Q $t.keluar } else { 'null' }) + ',"exit":' + (N $t.exit) + ',"sebab":' + (Q $t.sebab) +
     ',"status":' + (Q $t.status) + ',"ret":' + (N $t.ret '0.#####') + ',"harga":' + (N $t.harga) + '}')
 }
@@ -218,7 +227,7 @@ if ($true) {
     if ($t.status -eq 'SELESAI' -and $t.keluar -lt $cut) { continue }
     if ($t.status -eq 'TERLEPAS' -and $t.sig -lt $cut) { continue }
     $nj.Add('{"k":' + (Q $t.k) + ',"n":' + (Q $t.n) + ',"sig":' + (Q $t.sig) + ',"status":' + (Q $t.status) + ',"buyMax":' + (N $t.buyMax) +
-      ',"sl":' + (N $t.sl) + ',"entry":' + (N $t.entry) + ',"exit":' + (N $t.exit) + ',"ret":' + (N $t.ret '0.#####') + ',"sebab":' + (Q $t.sebab) + '}')
+      ',"sl":' + (N $t.sl) + ',"stop":' + (N $t.stop) + ',"entry":' + (N $t.entry) + ',"exit":' + (N $t.exit) + ',"ret":' + (N $t.ret '0.#####') + ',"sebab":' + (Q $t.sebab) + '}')
   }
   [IO.File]::WriteAllText($notiFile,'{"pasaran":' + (Q $Pasaran) + ',"tarikhData":' + (Q $lastDate) + ',"t":[' + ($nj -join ',') + ']}', (New-Object Text.UTF8Encoding $false))
 }
