@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>VK Saham</title>
-<meta name="description" content="Signal saham Bursa Malaysia harian: beli pada paras tertinggi 52 minggu, jual bawah EMA50. Rekod jujur.">
+<meta name="description" content="Signal saham harian Bursa Malaysia, SGX dan US: beli pada paras tertinggi 52 minggu, jual bawah EMA50. Rekod jujur.">
 <meta name="theme-color" content="#0A0907">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -134,6 +134,10 @@ h3{font-size:15px;font-weight:600}
 .search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .ipo{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
 .btn{border:1px solid var(--line);background:var(--surface-2);padding:8px 14px;border-radius:9px;font-weight:500;text-decoration:none;color:var(--fg);display:inline-block}
+.mkt{display:flex;gap:6px;padding:0 0 8px;overflow-x:auto}
+.mkt a{flex:none;border:1px solid var(--line);background:var(--surface-2);padding:5px 12px;border-radius:999px;font-size:13px;color:var(--muted);text-decoration:none;white-space:nowrap}
+.mkt a[aria-current="true"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent);font-weight:600}
+.mkt a small{font-size:10.5px;font-weight:700;letter-spacing:.06em;margin-left:4px;opacity:.8}
 .tabbar{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px;box-shadow:var(--shadow);max-width:calc(100vw - 20px)}
 .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 14px;border-radius:13px;text-decoration:none;color:var(--muted);font-size:11.5px;font-weight:500;min-width:62px}
 .tabbar a svg{width:20px;height:20px}
@@ -164,6 +168,7 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
     </a>
     <span class="live" id="live">Memuatkan…</span>
   </div>
+  <nav class="wrap wide mkt" id="mkt" aria-label="Pasaran"></nav>
   <div class="tape" aria-hidden="true"><div class="tape-in" id="tape"></div></div>
 </header>
 
@@ -190,16 +195,36 @@ footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const px = x => x == null || isNaN(x) ? '–' : (x < 1 ? x.toFixed(3) : x.toFixed(2));
-const rm = x => x == null || isNaN(x) ? '–' : 'RM' + Math.round(x).toLocaleString('en-MY');
-const rm2 = x => x == null || isNaN(x) ? '–' : 'RM' + x.toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2});
+const rm = x => x == null || isNaN(x) ? '–' : M.cur + Math.round(x).toLocaleString('en-MY');
+const rm2 = x => x == null || isNaN(x) ? '–' : M.cur + x.toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2});
 const pc = (x, d = 1) => x == null || isNaN(x) ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(d) + '%';
 const cls = x => x > 0 ? 'pos' : x < 0 ? 'neg' : '';
 const store = { get(k, d) { try { const v = localStorage.getItem('vks:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
                 set(k, v) { try { localStorage.setItem('vks:' + k, JSON.stringify(v)); } catch (e) {} } };
 
+/* ---------- pasaran ----------
+   MY penuh. SG dan US berlabel UJIAN (rekod 10 tahun lemah, lihat tab Prestasi). Pilihan disimpan dalam ?p= dan localStorage. */
+const MKS = {
+  my: { file: 'vk-saham.json', cur: 'RM', lot: 100, nama: 'Bursa Malaysia', pendek: 'Bursa', flag: '🇲🇾', suf: '.KL', modal: 5000, ujian: false,
+        fee: v => { const kom = v * 0.0003, plat = 3, clr = Math.min(v * 0.0003, 1000); return kom + plat + clr + (kom + plat + clr) * 0.08 + Math.min(Math.ceil(v / 1000), 1000); },
+        feeNota: 'Yuran Moomoo MY (komisen 0.03%, platform RM3, penjelasan, SST 8%, duti setem).', ex: [1.00, 0.92], penny: true, ipo: true },
+  sg: { file: 'vk-saham-sg.json', cur: 'S$', lot: 100, nama: 'Singapore (SGX)', pendek: 'SGX', flag: '🇸🇬', suf: '.SI', modal: 2000, ujian: true,
+        fee: v => { const kom = Math.max(0.99, v * 0.0003), plat = Math.max(0.99, v * 0.0003), clr = v * 0.000325, trd = v * 0.000075; return (kom + plat) * 1.09 + (clr + trd) * 1.09; },
+        feeNota: 'Anggaran yuran Moomoo SG (komisen 0.03% min S$0.99, platform 0.03% min S$0.99, SGX 0.04%, GST 9%). Semak jadual yuran terkini; selepas promosi ia boleh jauh lebih mahal.', ex: [1.00, 0.92], penny: true, ipo: false },
+  us: { file: 'vk-saham-us.json', cur: 'US$', lot: 1, nama: 'Amerika (saham besar)', pendek: 'US', flag: '🇺🇸', suf: '', modal: 1000, ujian: true,
+        fee: v => (v * 0.0003 + 0.99) * 1.08,
+        feeNota: 'Anggaran yuran Moomoo MY untuk saham US (0.03% + US$0.99, SST 8%). Belum termasuk kos tukaran RM ke USD.', ex: [100, 92], penny: false, ipo: false }
+};
+let MK = (new URLSearchParams(location.search).get('p') || store.get('pasaran', 'my')).toLowerCase();
+if (!MKS[MK]) MK = 'my';
+store.set('pasaran', MK);
+const M = MKS[MK];
+
 let D = null, S = [], BY = {}, T = [], IPO = null;
-let MODAL = store.get('modal', 5000), RISK = store.get('risk', 1);
+let MODAL = store.get('modal-' + MK, store.get(MK === 'my' ? 'modal' : '-', M.modal)), RISK = store.get('risk', 1);
 let BLUE = new Set(), DIVTOP = [], LISTCAT = 'semua', QUERY = '';
+const IDX = () => (D && D.klci && D.klci.nama) || 'Indeks';
+const unitTxt = z => M.lot === 1 ? `<b>${z.u.toLocaleString('en-MY')} saham</b>` : `<b>${z.lot} lot</b> (${z.u.toLocaleString('en-MY')} unit)`;
 
 /* Ujian 10 tahun (PromptTest.java, 960 saham Bursa, kos 0.5%, 2016-2026). Hasil dibekukan 2026-11-15. */
 const UJIAN = [
@@ -210,29 +235,41 @@ const UJIAN = [
   {n:'Prompt Swing: pullback EMA20, SL 2 ATR, TP 1:2', t:9575, w:31, avg:-0.98, pf:0.64, a:'-1440R', b:'-1385R'},
   {n:'Prompt Penny: volum 3x, cut loss ketat, TP 1:2', t:5659, w:29, avg:-1.79, pf:0.62, a:'-645R', b:'-1000R'}
 ];
-const TAHUN = [['2017','+228'],['2018','-84'],['2019','+43'],['2020','+1021'],['2021','-152'],['2022','-31'],['2023','+157'],['2024','+211'],['2025','+78'],['2026','-71']];
+/* Rekod 10 tahun mengikut pasaran (PromptTest/ExitTest 2026-11-15, peraturan VK yang sama, kos sebenar pasaran) */
+const UJI = {
+  my: { rows: UJIAN, tahun: [['2017','+228'],['2018','-84'],['2019','+43'],['2020','+1021'],['2021','-152'],['2022','-31'],['2023','+157'],['2024','+211'],['2025','+78'],['2026','-71']],
+        nota: 'PF = jumlah untung ÷ jumlah rugi. Bawah 1 = rugi. Hanya peraturan VK lulus. Tapi jujur: hampir 3/4 untungnya datang dari tahun 2020 (lantunan selepas COVID). Tanpa 2020: +379R dalam 9 tahun.',
+        sub: '960 saham Bursa, 2016-2026, kos 0.5%. Peraturan prompt dibekukan dulu, baru diuji. R = berapa kali risiko.' },
+  sg: { rows: [{n:'VK di SGX (tertinggi 52 minggu, SL 2 ATR, jual bawah EMA50)', t:960, w:18, avg:1.33, pf:1.23, a:'-127R', b:'+347R', ok:true}],
+        tahun: [['2017','-27'],['2018','-62'],['2019','-73'],['2020','+67'],['2021','-32'],['2022','+3'],['2023','+35'],['2024','-25'],['2025','+221'],['2026','+114']],
+        nota: 'UJIAN: untung keseluruhan, tetapi rugi dalam kebanyakan tahun 2017-2024. Hampir semua untung datang dari 2025-26. Jangan guna wang sebenar sebelum rekod langsung membuktikannya.',
+        sub: '418 saham SGX, 2016-2026, kos 0.35%. R = berapa kali risiko.' },
+  us: { rows: [{n:'VK di US, saham besar ≥ US$200 juta sehari (yang dipakai)', t:7410, w:20, avg:0.62, pf:1.12, a:'+413R', b:'+375R', ok:true},
+               {n:'VK di US, semua saham (TIDAK dipakai)', t:27324, w:19, avg:0.23, pf:0.99, a:'+444R', b:'-706R'}],
+        tahun: [['2017','+13'],['2018','-275'],['2019','+116'],['2020','+546'],['2021','-69'],['2022','-234'],['2023','+294'],['2024','+231'],['2025','+472'],['2026','-306']],
+        nota: 'UJIAN: semua saham US rugi selepas kos (PF 0.99), jadi hanya saham besar dipantau. Saham besar untung tipis (PF 1.12; tanpa 2020 PF 1.04). Penapis "saham besar" dipilih selepas melihat keputusan pertama, jadi hasil sebenar mungkin lebih lemah. Untuk pelaburan jangka panjang, ujian kita mendapati ETF indeks (contoh VOO) lebih baik.',
+        sub: '629 saham US paling aktif, 2016-2026, kos 0.1% (yuran tetap US$0.99 belum dikira). R = berapa kali risiko.' }
+};
+const TAHUN = UJI[MK].tahun;
 
 /* Yuran Moomoo MY satu hala: 0.03% komisen + RM3 platform + 0.03% penjelasan (maks RM1,000) + SST 8% atas yuran + duti setem RM1 setiap RM1,000 */
-function yuran(nilai) {
-  if (!(nilai > 0)) return 0;
-  const kom = nilai * 0.0003, plat = 3, clr = Math.min(nilai * 0.0003, 1000);
-  return kom + plat + clr + (kom + plat + clr) * 0.08 + Math.min(Math.ceil(nilai / 1000), 1000);
-}
+function yuran(nilai) { return nilai > 0 ? M.fee(nilai) : 0; }
 /* Saiz kedudukan: risiko % modal dibahagi jarak SL, dibundarkan ke lot 100 unit, tidak melebihi modal */
 function saiz(entry, sl) {
   const R = entry - sl; if (!(R > 0) || !(entry > 0)) return null;
-  const byRisk = Math.floor(MODAL * RISK / 100 / R / 100) * 100, byCap = Math.floor(MODAL / entry / 100) * 100;
+  const L = M.lot, byRisk = Math.floor(MODAL * RISK / 100 / R / L) * L, byCap = Math.floor(MODAL / entry / L) * L;
   const u = Math.max(0, Math.min(byRisk, byCap)), nilai = u * entry;
-  return { u, lot: u / 100, nilai, rugi: u * R + yuran(nilai) + yuran(u * sl), yur: yuran(nilai) + yuran(nilai), byRisk, byCap };
+  return { u, lot: u / L, nilai, rugi: u * R + yuran(nilai) + yuran(u * sl), yur: yuran(nilai) + yuran(nilai), byRisk, byCap };
 }
 function calcHtml(entry, sl) {
   const z = saiz(entry, sl);
   if (!z) return '';
   if (z.u === 0) {
-    const min = 100 * entry;
-    return `<p class="calc">Modal ${rm(MODAL)} dengan risiko ${RISK}% tak cukup untuk 1 lot (100 unit = ${rm2(min)}, risiko ${rm2(100 * (entry - sl))}). Lebih baik lepaskan signal ini.</p>`;
+    const min = M.lot * entry;
+    return `<p class="calc">Modal ${rm(MODAL)} dengan risiko ${RISK}% tak cukup untuk ${M.lot === 1 ? '1 saham' : '1 lot'} (${M.lot} unit = ${rm2(min)}, risiko ${rm2(M.lot * (entry - sl))}). Lebih baik lepaskan signal ini.</p>`;
   }
-  return `<p class="calc">Modal ${rm(MODAL)}, risiko ${RISK}%: beli <b>${z.lot} lot</b> (${z.u.toLocaleString('en-MY')} unit) ≈ <b>${rm2(z.nilai)}</b>. Kalau kena SL, rugi lebih kurang <b class="neg">${rm2(z.rugi)}</b> termasuk yuran.${z.byCap < z.byRisk ? ' (Dihadkan oleh modal.)' : ''}</p>`;
+  const kecil = z.nilai < 20 * yuran(z.nilai) ? ` <span class="neg">Yuran ${rm2(2 * yuran(z.nilai))} pergi-balik = ${(200 * yuran(z.nilai) / z.nilai).toFixed(1)}% daripada nilai: terlalu besar untuk saiz ini.</span>` : '';
+  return `<p class="calc">Modal ${rm(MODAL)}, risiko ${RISK}%: beli ${unitTxt(z)} ≈ <b>${rm2(z.nilai)}</b>.${kecil} Kalau kena SL, rugi lebih kurang <b class="neg">${rm2(z.rugi)}</b> termasuk yuran.${z.byCap < z.byRisk ? ' (Dihadkan oleh modal.)' : ''}</p>`;
 }
 
 function trendUp(s) { return s.e50 > s.e200 && s.c > s.e200; }
@@ -271,17 +308,18 @@ function renderHome() {
   const hampir = S.filter(s => s.st === 'HAMPIR'), naik = S.filter(s => trendUp(s)).length;
   const kch = k ? k.tutup / k.semalam - 1 : 0;
   $('#v-home').innerHTML = `
-    <div class="hello"><div class="k">Bursa Malaysia · signal harian</div>
+    <div class="hello"><div class="k">${M.flag} ${esc(M.nama)} · signal harian${M.ujian ? ' · UJIAN' : ''}</div>
       <div class="name">VK <span>Saham</span></div>
       <div class="clock">Data hingga ${esc(D.tarikhData)} · dikemas ${esc(D.dikemas)} MYT</div></div>
-    ${k && !k.naik ? `<p class="banner">KLCI ${px(k.tutup)} berada <b>bawah EMA200</b> (${px(k.ema200)}): pasaran umum lemah. Signal tetap keluar (penapis indeks tidak membantu dalam ujian), tetapi jangka lebih banyak SL.</p>` : ''}
+    ${ujianBanner()}
+    ${k && !k.naik ? `<p class="banner">${esc(IDX())} ${px(k.tutup)} berada <b>bawah EMA200</b> (${px(k.ema200)}): pasaran umum lemah. Signal tetap keluar (penapis indeks tidak membantu dalam ujian), tetapi jangka lebih banyak SL.</p>` : ''}
     <div class="strip">
-      <div><div class="k">KLCI</div><div class="v">${k ? px(k.tutup) : '–'} <small class="${cls(kch)}">${pc(kch, 2)}</small></div></div>
+      <div><div class="k">${esc(IDX())}</div><div class="v">${k ? px(k.tutup) : '–'} <small class="${cls(kch)}">${pc(kch, 2)}</small></div></div>
       <div><div class="k">Signal BELI</div><div class="v">${baru.length}</div></div>
       <div><div class="k">Sedang pegang</div><div class="v">${pegang.length}</div></div>
       <div><div class="k">Trend naik</div><div class="v">${naik}<small>/${S.length}</small></div></div>
     </div>
-    ${k ? `<div class="panel"><div class="row between"><h2>KLCI 180 hari</h2><span class="st ${k.naik ? 'NAIK' : 'TURUN'}">${k.naik ? 'ATAS EMA200' : 'BAWAH EMA200'}</span></div>${spark(k.c, k.ema200)}<p class="cap">Garis putus-putus = EMA200 hari ini (${px(k.ema200)}).</p></div>` : ''}
+    ${k ? `<div class="panel"><div class="row between"><h2>${esc(IDX())} 180 hari</h2><span class="st ${k.naik ? 'NAIK' : 'TURUN'}">${k.naik ? 'ATAS EMA200' : 'BAWAH EMA200'}</span></div>${spark(k.c, k.ema200)}<p class="cap">Garis putus-putus = EMA200 hari ini (${px(k.ema200)}).</p></div>` : ''}
     <div class="panel"><div class="row between"><h2>Signal BELI terbaru</h2><a href="#signals" class="pill">Semua</a></div>
       ${baru.length ? '<div class="list">' + baru.slice(0, 5).map(t => BY[t.k] ? itemHtml(BY[t.k], 'beli esok, had ' + px(t.buyMax)) : '').join('') + '</div>'
         : `<div class="empty"><b>Tiada signal BELI hari ini</b>Biasa: signal jarang, kadang-kadang beberapa hari tiada. ${hampir.length} saham hampir paras 52 minggu.</div>`}
@@ -290,20 +328,27 @@ function renderHome() {
       <a class="tile" href="#list" data-cat="hampir"><b>Hampir breakout</b><span>${hampir.length} saham ≤3% dari paras tertinggi 52 minggu</span></a>
       <a class="tile" href="#list" data-cat="blue"><b>Blue Chip</b><span>30 syarikat terbesar, status trend</span></a>
       <a class="tile" href="#list" data-cat="dividen"><b>Pelaburan Dividen</b><span>10 saham dividen tinggi + stabil</span></a>
-      <a class="tile" href="#list" data-cat="ipo"><b>IPO ACE</b><span>IPO baru + apa kata sejarah</span></a>
+      ${M.ipo ? `<a class="tile" href="#list" data-cat="ipo"><b>IPO ACE</b><span>IPO baru + apa kata sejarah</span></a>`
+        : `<a class="tile" href="#stats"><b>Rekod ujian ${esc(M.pendek)}</b><span>Kenapa pasaran ini berlabel ujian</span></a>`}
     </div>`;
   $('#v-home').querySelectorAll('[data-cat]').forEach(a => a.addEventListener('click', () => { LISTCAT = a.dataset.cat; }));
 }
 
+function ujianBanner() {
+  if (!M.ujian) return '';
+  const u = UJI[MK].rows[0];
+  return `<p class="banner"><b>${esc(M.pendek)}: UJIAN.</b> Dalam ujian 10 tahun, peraturan ini hanya ${u.pf < 1 ? 'rugi' : 'untung tipis'} (PF ${u.pf.toFixed(2)}; separuh pertama ${esc(u.a)}, separuh kedua ${esc(u.b)}). Ikut dengan duit kertas dulu, bukan duit sebenar. <a href="#stats">Lihat sebab</a>.</p>`;
+}
+
 function settingsHtml() {
   return `<div class="panel"><h2>Modal saya</h2><div class="two">
-    <label class="field">Modal (RM)<input id="inModal" type="number" min="0" step="500" value="${MODAL}" inputmode="numeric"></label>
+    <label class="field">Modal (${esc(M.cur)})<input id="inModal" type="number" min="0" step="500" value="${MODAL}" inputmode="numeric"></label>
     <label class="field">Risiko setiap trade (%)<select id="inRisk">${[0.5, 1, 1.5, 2].map(r => `<option value="${r}"${r == RISK ? ' selected' : ''}>${r}% = ${rm(MODAL * r / 100)}</option>`).join('')}</select></label></div>
     <p class="cap">Saiz lot dikira supaya kalau kena SL, rugi lebih kurang sama dengan risiko ini. Disimpan dalam telefon ini sahaja.</p></div>`;
 }
 function bindSettings(redraw) {
   const m = $('#inModal'), r = $('#inRisk');
-  if (m) m.addEventListener('change', () => { MODAL = Math.max(0, +m.value || 0); store.set('modal', MODAL); redraw(); });
+  if (m) m.addEventListener('change', () => { MODAL = Math.max(0, +m.value || 0); store.set('modal-' + MK, MODAL); redraw(); });
   if (r) r.addEventListener('change', () => { RISK = +r.value; store.set('risk', RISK); redraw(); });
 }
 
@@ -327,7 +372,8 @@ function renderSignals() {
   const baru = T.filter(t => t.status === 'BARU'), pegang = T.filter(t => t.status === 'PEGANG');
   const lepas = T.filter(t => t.status === 'TERLEPAS').slice(0, 5);
   $('#v-signals').innerHTML = `
-    <div><h1>Signal</h1><p class="sub">Isyarat dikira selepas pasaran tutup (data ${esc(D.tarikhData)}). Beli pada <b>harga buka esok</b>, hanya jika tidak melebihi had beli. Jangan kejar.</p></div>
+    ${ujianBanner()}
+    <div><h1>Signal ${M.flag}</h1><p class="sub">Isyarat dikira selepas pasaran tutup (data ${esc(D.tarikhData)}${MK === 'us' ? ', waktu New York; pasaran US buka 9:30 malam MYT' : ''}). Beli pada <b>harga buka esok</b>, hanya jika tidak melebihi had beli. Jangan kejar.</p></div>
     ${settingsHtml()}
     <h2>BELI esok (${baru.length})</h2>
     ${baru.length ? baru.map(sigCard).join('') : `<div class="empty"><b>Tiada signal BELI baru</b>Tunggu. Lihat senarai Hampir di tab Saham.</div>`}
@@ -338,7 +384,13 @@ function renderSignals() {
   bindSettings(renderSignals);
 }
 
-const CATS = [['semua', 'Semua'], ['beli', 'BELI'], ['hampir', 'Hampir'], ['blue', 'Blue Chip'], ['dividen', 'Dividen'], ['penny', 'Penny'], ['ipo', 'IPO ACE']];
+const CATS = [['semua', 'Semua'], ['beli', 'BELI'], ['hampir', 'Hampir'], ['blue', 'Blue Chip'], ['dividen', 'Dividen'], ['penny', 'Penny'], ['ipo', 'IPO ACE']]
+  .filter(([c]) => (c !== 'penny' || M.penny) && (c !== 'ipo' || M.ipo));
+const DIVNOTA = {
+  my: 'Dividen + Stabil: dividen 12 bulan tinggi + harga kurang bergerak. Diuji 2017-2026 dengan yuran Moomoo: 5 saham, beli sekali setahun, pegang 12 bulan ≈ +8.4% setahun termasuk dividen (bulan mula terburuk masih +5.6% setahun, tapi nilai pernah turun −19% di tengah jalan). Modal bawah RM20k: ambil 5 teratas. Dividen yang sangat tinggi mungkin termasuk dividen khas sekali sahaja: semak dulu.',
+  sg: 'Dividen + Stabil di SGX: diuji ≈ +6.9% setahun dengan yuran Moomoo SG, tetapi ETF STI (ES3) hampir sama baik dengan kerja yang jauh kurang. Dividen yang sangat tinggi mungkin dividen khas: semak dulu.',
+  us: 'Untuk US, ujian kita mendapati ETF indeks (contoh VOO) lebih baik daripada memilih saham sendiri. Dividen saham US dipotong cukai 30% untuk pelabur Malaysia. Senarai ini untuk pemerhatian sahaja.'
+};
 function renderList() {
   let body = '';
   if (LISTCAT === 'ipo') body = ipoHtml();
@@ -347,8 +399,8 @@ function renderList() {
     if (LISTCAT === 'beli') { L = L.filter(s => openTrade(s.k)); note = 'Signal baru atau sedang dipegang strategi.'; }
     if (LISTCAT === 'hampir') { L = L.filter(s => s.st === 'HAMPIR').sort((a, b) => b.c / b.hh - a.c / a.hh); note = 'Trend naik dan ≤3% bawah paras tertinggi 52 minggu. BUKAN signal: tunggu harga tutup atas paras itu.'; }
     if (LISTCAT === 'blue') { L = L.filter(s => BLUE.has(s.k)).sort((a, b) => b.mc - a.mc); note = '30 syarikat terbesar mengikut modal pasaran. Status ialah trend swing, bukan cadangan pelaburan.'; }
-    if (LISTCAT === 'dividen') { L = DIVTOP.slice(); note = `Dividen + Stabil: dividen 12 bulan tinggi + harga kurang bergerak. Diuji 2017-2026 dengan yuran Moomoo: 5 saham, beli sekali setahun, pegang 12 bulan ≈ +8.4% setahun termasuk dividen (bulan mula terburuk masih +5.6% setahun, tapi nilai pernah turun −19% di tengah jalan). Modal bawah RM20k: ambil 5 teratas. Dividen yang sangat tinggi mungkin termasuk dividen khas sekali sahaja: semak dulu.`; }
-    if (LISTCAT === 'penny') { L = L.filter(isPenny).sort((a, b) => b.nilai - a.nilai); note = 'Harga bawah RM1 dan syarikat untung (EPS > 0). Peraturan "lonjakan volum" dari prompt RUGI dalam ujian 10 tahun (PF 0.62), jadi tiada signal penny khas. Penny hanya dapat signal BELI kalau lulus peraturan VK biasa.'; }
+    if (LISTCAT === 'dividen') { L = DIVTOP.slice(); note = DIVNOTA[MK]; }
+    if (LISTCAT === 'penny') { L = L.filter(isPenny).sort((a, b) => b.nilai - a.nilai); note = 'Harga bawah ' + M.cur + '1 dan syarikat untung (EPS > 0). Peraturan "lonjakan volum" dari prompt RUGI dalam ujian 10 tahun (PF 0.62), jadi tiada signal penny khas. Penny hanya dapat signal BELI kalau lulus peraturan VK biasa.'; }
     const ORD = {BELI: 0, PEGANG: 1, HAMPIR: 2, NAIK: 3, ELAK: 4};
     if (LISTCAT === 'semua') L.sort((a, b) => (ORD[stName(a)] - ORD[stName(b)]) || b.nilai - a.nilai);
     if (QUERY) { const q = QUERY.toLowerCase(); L = L.filter(s => s.n.toLowerCase().includes(q) || s.k.includes(q)); }
@@ -356,7 +408,7 @@ function renderList() {
     body = `${note ? `<p class="note">${note}</p>` : ''}<input class="search" id="q" type="search" placeholder="Cari nama atau kod…" value="${esc(QUERY)}">
       <div class="panel" style="padding:6px 12px">${L.length ? '<div class="list">' + L.map(s => itemHtml(s, right(s))).join('') + '</div>' : '<div class="empty"><b>Tiada saham</b>Cuba kategori lain.</div>'}</div>`;
   }
-  $('#v-list').innerHTML = `<div><h1>Saham</h1><p class="sub">${S.length} saham Bursa yang aktif (nilai dagangan ≥ RM1 juta sehari). Tekan satu saham untuk analisis.</p></div>
+  $('#v-list').innerHTML = `<div><h1>Saham ${M.flag}</h1><p class="sub">${S.length} saham ${esc(M.pendek)} yang aktif (nilai dagangan ≥ ${MK === 'us' ? 'US$200 juta' : M.cur + '1 juta'} sehari). Tekan satu saham untuk analisis.</p></div>
     <div class="chips">${CATS.map(([c, n]) => `<button class="chip" data-c="${c}" aria-current="${c === LISTCAT}">${n}</button>`).join('')}</div>${body}`;
   $('#v-list').querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => { LISTCAT = b.dataset.c; renderList(); }));
   const q = $('#q'); if (q) q.addEventListener('input', () => { QUERY = q.value; const pos = q.selectionStart; renderList(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); });
@@ -391,13 +443,14 @@ function analisa(s) {
   if (s.dy >= 4) kuat.push(`Dividen 12 bulan ${s.dy.toFixed(1)}% setahun.`);
   if (s.vol > 0 && s.vol <= 25) kuat.push(`Harga stabil: bergerak ±${s.vol.toFixed(0)}% setahun.`);
   if (s.mc >= 10e9) kuat.push(`Syarikat besar: modal pasaran ${rm(s.mc / 1e9)} bilion.`);
-  if (s.eps > 0) kuat.push(`Syarikat untung (EPS RM${s.eps}).`);
+  if (s.eps > 0) kuat.push(`Syarikat untung (EPS ${M.cur}${s.eps}).`);
   kuat.push(`Mudah beli/jual: purata ${rm(s.nilai / 1e6)} juta didagang sehari.`);
   if (!up) risiko.push(`Trend turun: harga bawah EMA200 (${px(s.e200)}) atau EMA50 bawah EMA200. Strategi tidak beli.`);
-  if (D.klci && !D.klci.naik) risiko.push('KLCI bawah EMA200: pasaran umum lemah, lebih banyak breakout gagal.');
-  if (s.eps != null && s.eps <= 0) risiko.push(`Syarikat rugi (EPS RM${s.eps}).`);
+  if (M.ujian) risiko.push(`${M.pendek} masih UJIAN: rekod 10 tahun peraturan ini di pasaran ini lemah (PF ${UJI[MK].rows[0].pf.toFixed(2)}).`);
+  if (D.klci && !D.klci.naik) risiko.push(`${IDX()} bawah EMA200: pasaran umum lemah, lebih banyak breakout gagal.`);
+  if (s.eps != null && s.eps <= 0) risiko.push(`Syarikat rugi (EPS ${M.cur}${s.eps}).`);
   if (s.vol > 40) risiko.push(`Harga sangat liar: bergerak ±${s.vol.toFixed(0)}% setahun.`);
-  if (s.c < 1) risiko.push(`Saham penny: 1 sen = ${(0.01 / s.c * 100).toFixed(1)}% pergerakan.`);
+  if (s.c < 1 && MK !== 'us') risiko.push(`Saham penny: 1 sen = ${(0.01 / s.c * 100).toFixed(1)}% pergerakan.`);
   if (up && s.c / s.e50 - 1 > 0.15) risiko.push(`Harga ${pc(s.c / s.e50 - 1)} atas EMA50: kalau jatuh ke EMA50, untung banyak hilang.`);
   if (s.dy < 1) risiko.push('Dividen kecil atau tiada.');
   risiko.push('Strategi ini menang lebih kurang 1 daripada 6 trade (ujian 10 tahun); kebanyakan trade rugi kecil.');
@@ -406,7 +459,7 @@ function analisa(s) {
   else if (ot) plan = `<li><b>Sudah dibeli</b> ${esc(ot.masuk)} pada ${px(ot.entry)} (sekarang ${pc(ot.harga / ot.entry - 1)}).</li><li><b>Stop Loss:</b> ${px(ot.sl)}.</li><li><b>Jual:</b> bila tutup bawah EMA50 (sekarang ${px(s.e50)}).</li>`;
   else if (up) plan = `<li><b>Zon belian:</b> tunggu harga TUTUP atas ${px(s.hh)} (paras tertinggi 52 minggu). Kemudian beli harga buka esok.</li><li><b>Stop Loss anggaran:</b> ${px(s.hh - 2 * s.atr)} (paras itu − 2 × ATR ${px(s.atr)}).</li><li><b>Sasaran:</b> tiada TP tetap; jual bila tutup bawah EMA50.</li>`;
   else plan = `<li><b>Swing: ELAK.</b> Tunggu trend naik semula (harga atas EMA200 ${px(s.e200)}).</li>`;
-  if (DIVTOP.some(d => d.k === s.k)) plan += `<li><b>Pelaburan:</b> dalam senarai Dividen + Stabil. Beli sekali setahun, pegang 12 bulan, tiada SL (diuji: ≈ +8.4% setahun termasuk dividen).</li>`;
+  if (DIVTOP.some(d => d.k === s.k) && MK !== 'us') plan += `<li><b>Pelaburan:</b> dalam senarai Dividen + Stabil. Beli sekali setahun, pegang 12 bulan, tiada SL (diuji: ≈ ${MK === 'sg' ? '+6.9' : '+8.4'}% setahun termasuk dividen).</li>`;
   return { cats, kuat: kuat.slice(0, 3), risiko: risiko.slice(0, 2), plan };
 }
 
@@ -416,7 +469,7 @@ function renderStock(k) {
   const a = analisa(s), ch = chg(s), ot = openTrade(k), hist = T.filter(t => t.k === k);
   $('#v-stock').innerHTML = `
     <a href="#list" class="cap" style="margin:0">← Senarai saham</a>
-    <div class="row between"><div><h1>${esc(s.n)}</h1><div class="k">${esc(s.k)}.KL · data ${esc(s.tarikh)}</div></div><span class="st ${stName(s)}">${stName(s)}</span></div>
+    <div class="row between"><div><h1>${esc(s.n)}</h1><div class="k">${M.flag} ${esc(s.k)}${esc(M.suf)} · data ${esc(s.tarikh)}</div></div><span class="st ${stName(s)}">${stName(s)}</span></div>
     <div><div class="hero-px">${px(s.c)}</div><div class="${cls(ch)} mono">${pc(ch, 2)} hari ini</div></div>
     <div class="panel"><div class="chart-box"><canvas id="cv"></canvas></div>
       <p class="cap">180 hari. Garis emas = paras tertinggi 52 minggu ${px(s.hh)} · biru = EMA50 hari ini ${px(s.e50)}${ot ? ' · merah = SL ' + px(ot.sl) : ''}.</p></div>
@@ -427,7 +480,7 @@ function renderStock(k) {
       <div><h3>2. Kekuatan utama</h3><ol>${a.kuat.map(x => `<li>${x}</li>`).join('')}</ol></div>
       <div><h3>3. Risiko utama</h3><ol>${a.risiko.map(x => `<li>${x}</li>`).join('')}</ol></div>
       <div><h3>4. Pelan harga</h3><ul>${a.plan}</ul></div>
-      <p class="note">Dikira dari data harga sahaja, bukan pendapat AI. Fundamental (P/E industri, aliran tunai, prospektus) tiada dalam data ini: semak laporan suku tahun di Bursa sebelum beli.</p>
+      <p class="note">Dikira dari data harga sahaja, bukan pendapat AI. Fundamental (P/E industri, aliran tunai, prospektus) tiada dalam data ini: semak laporan suku tahun ${MK === 'us' ? '(SEC)' : MK === 'sg' ? 'di SGX' : 'di Bursa'} sebelum beli.</p>
     </div>
     <div class="two">
       <div class="box"><div class="k">Dividen 12 bulan</div><div class="p">${s.dy.toFixed(1)}%</div></div>
@@ -473,40 +526,41 @@ function renderStats() {
   const live = T.filter(t => t.sig >= D.mula), past = T.filter(t => t.sig < D.mula);
   const L = statBlock(live), P = statBlock(past);
   $('#v-stats').innerHTML = `
-    <div><h1>Prestasi</h1><p class="sub">Tiga lapisan bukti: rekod langsung (bermula ${esc(D.mula)}), main semula 13 bulan dari lilin, dan ujian 10 tahun. Selepas yuran 0.5% pergi-balik.</p></div>
+    ${ujianBanner()}
+    <div><h1>Prestasi ${M.flag}</h1><p class="sub">Tiga lapisan bukti: rekod langsung (bermula ${esc(D.mula)}), main semula 13 bulan dari lilin, dan ujian 10 tahun. Selepas kos ${(D.kos * 100).toFixed(2)}% pergi-balik.</p></div>
     <div class="panel"><div class="row between"><h2>Rekod langsung</h2><span class="pill">sejak ${esc(D.mula)}</span></div>
       ${live.length ? `<div class="strip"><div><div class="k">Selesai</div><div class="v">${L.n}</div></div><div><div class="k">Menang</div><div class="v">${(L.win * 100).toFixed(0)}%</div></div><div><div class="k">Purata</div><div class="v ${cls(L.avg)}">${pc(L.avg)}</div></div><div><div class="k">Terbuka</div><div class="v">${L.open}</div></div></div>`
         : `<div class="empty"><b>Belum ada signal sejak ${esc(D.mula)}</b>Rekod ini hanya bertambah ke depan, tidak boleh diubah.</div>`}</div>
     <div class="panel"><h2>Main semula 13 bulan</h2>
       <div class="strip"><div><div class="k">Trade selesai</div><div class="v">${P.n}</div></div><div><div class="k">Menang</div><div class="v">${(P.win * 100).toFixed(0)}%</div></div>
-      <div><div class="k">Purata / trade</div><div class="v ${cls(P.avg)}">${pc(P.avg, 2)}</div></div><div><div class="k">Jika RM1,000 / trade</div><div class="v ${cls(P.sum)}">${rm(P.sum * 1000)}</div></div></div>
+      <div><div class="k">Purata / trade</div><div class="v ${cls(P.avg)}">${pc(P.avg, 2)}</div></div><div><div class="k">Jika ${esc(M.cur)}1,000 / trade</div><div class="v ${cls(P.sum)}">${rm(P.sum * 1000)}</div></div></div>
       <p class="cap" style="margin:0">Terbaik ${pc(P.best)}, terburuk ${pc(P.worst)}. Dikira semula setiap hari dari harga sebenar pada saham dalam senarai hari ini (ada bias: saham yang sudah jatuh keluar senarai tiada).</p></div>
-    <div class="panel"><h2>Ujian 10 tahun: VK vs prompt</h2>
-      <p class="cap" style="margin:0">960 saham Bursa, 2016-2026, kos 0.5%. Peraturan prompt dibekukan dulu, baru diuji. R = berapa kali risiko.</p>
+    <div class="panel"><h2>Ujian 10 tahun${MK === 'my' ? ': VK vs prompt' : ' ' + esc(M.pendek)}</h2>
+      <p class="cap" style="margin:0">${esc(UJI[MK].sub)}</p>
       <div class="scroll-x"><table class="dtable"><thead><tr><th>Peraturan</th><th class="num">Trade</th><th class="num">Menang</th><th class="num">Purata</th><th class="num">PF</th><th class="num">Separuh 1</th><th class="num">Separuh 2</th></tr></thead><tbody>
-      ${UJIAN.map(u => `<tr class="${u.ok ? 'good' : 'bad'}"><td style="white-space:normal;min-width:220px">${esc(u.n)}</td><td class="num">${u.t}</td><td class="num">${u.w}%</td><td class="num ${cls(u.avg)}">${u.avg > 0 ? '+' : ''}${u.avg.toFixed(2)}%</td><td class="num">${u.pf.toFixed(2)}</td><td class="num">${u.a}</td><td class="num">${u.b}</td></tr>`).join('')}</tbody></table></div>
-      <p class="note">PF = jumlah untung ÷ jumlah rugi. Bawah 1 = rugi. Hanya peraturan VK lulus. Tapi jujur: hampir 3/4 untungnya datang dari tahun 2020 (lantunan selepas COVID). Tanpa 2020: +379R dalam 9 tahun.</p>
+      ${UJI[MK].rows.map(u => `<tr class="${u.ok ? 'good' : 'bad'}"><td style="white-space:normal;min-width:220px">${esc(u.n)}</td><td class="num">${u.t}</td><td class="num">${u.w}%</td><td class="num ${cls(u.avg)}">${u.avg > 0 ? '+' : ''}${u.avg.toFixed(2)}%</td><td class="num">${u.pf.toFixed(2)}</td><td class="num">${u.a}</td><td class="num">${u.b}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">${esc(UJI[MK].nota)}</p>
       <div class="scroll-x"><table class="dtable"><thead><tr>${TAHUN.map(y => `<th class="num">${y[0]}</th>`).join('')}</tr></thead><tbody><tr>${TAHUN.map(y => `<td class="num ${y[1].startsWith('-') ? 'neg' : 'pos'}">${y[1]}R</td>`).join('')}</tr></tbody></table></div>
     </div>`;
 }
 
 function renderGuide() {
-  const ex = 1.00, sl = 0.92, z = saiz(ex, sl);
+  const ex = M.ex[0], sl = M.ex[1], z = saiz(ex, sl), up1 = ex * 1.15, up2 = ex * 1.5;
   $('#v-guide').innerHTML = `
     <div><h1>Panduan</h1><p class="sub">Cara guna VK Saham, dalam 5 minit.</p></div>
     <div class="panel"><h2>Peraturan (sama setiap hari)</h2><ol>
-      <li><b>BELI</b> bila harga tutup <b>atas paras tertinggi 52 minggu</b>, EMA50 atas EMA200, harga atas EMA200, dan saham aktif (≥ RM1 juta sehari).</li>
+      <li><b>BELI</b> bila harga tutup <b>atas paras tertinggi 52 minggu</b>, EMA50 atas EMA200, harga atas EMA200, dan saham aktif (≥ ${MK === 'us' ? 'US$200 juta' : M.cur + '1 juta'} sehari).</li>
       <li>Beli pada <b>harga buka esok</b>, hanya jika ≤ had beli (tutup + 0.5 ATR). Kalau buka lebih tinggi: <b>lepaskan</b>, jangan kejar.</li>
       <li><b>Stop Loss</b> = 2 × ATR bawah harga beli. Letak terus selepas beli.</li>
       <li><b>JUAL</b> bila harga tutup bawah <b>EMA50</b>. Tiada TP tetap: biar untung lari.</li></ol></div>
     <div class="panel"><h2>Contoh dengan duit</h2>
       <p style="margin:0">Modal ${rm(MODAL)}, risiko ${RISK}%. Signal: beli ${px(ex)}, SL ${px(sl)}.</p>
       <div class="scroll-x"><table class="dtable"><thead><tr><th>Apa jadi</th><th class="num">Untung/rugi</th></tr></thead><tbody>
-        <tr><td>Beli ${z ? z.lot : 0} lot (${z ? z.u : 0} unit)</td><td class="num">${z ? rm2(z.nilai) : '–'}</td></tr>
+        <tr><td>Beli ${z ? (M.lot === 1 ? z.u + ' saham' : z.lot + ' lot (' + z.u + ' unit)') : 0}</td><td class="num">${z ? rm2(z.nilai) : '–'}</td></tr>
         <tr><td>Kena SL ${px(sl)}</td><td class="num neg">−${z ? rm2(z.rugi) : '–'}</td></tr>
-        <tr><td>Naik ke 1.20, tutup bawah EMA50 di 1.15</td><td class="num pos">+${z ? rm2(z.u * 0.15 - z.yur) : '–'}</td></tr>
-        <tr><td>Trend besar, jual di 1.50</td><td class="num pos">+${z ? rm2(z.u * 0.5 - z.yur) : '–'}</td></tr></tbody></table></div>
-      <p class="cap" style="margin:0">Termasuk yuran Moomoo MY (komisen, platform RM3, penjelasan, SST, duti setem). Biasanya 5 rugi kecil, 1 untung besar.</p></div>
+        <tr><td>Naik, kemudian tutup bawah EMA50 di ${px(up1)}</td><td class="num pos">+${z ? rm2(z.u * (up1 - ex) - z.yur) : '–'}</td></tr>
+        <tr><td>Trend besar, jual di ${px(up2)}</td><td class="num pos">+${z ? rm2(z.u * (up2 - ex) - z.yur) : '–'}</td></tr></tbody></table></div>
+      <p class="cap" style="margin:0">${esc(M.feeNota)} Biasanya 5 rugi kecil, 1 untung besar.</p></div>
     <div class="panel"><h2>Kenapa bukan peraturan dalam prompt?</h2>
       <p style="margin:0">Prompt "penganalisis ekuiti" anda kami tukar kepada peraturan tepat (EMA20/50, RSI 50-70, breakout atau pullback, SL teknikal, TP 1:2, penny lonjakan volum) dan uji pada 960 saham, 10 tahun. <b>Semua 5 versi rugi</b> (PF 0.62-0.93). Sebabnya: TP 1:2 memotong trend yang besar, dan yuran 0.5% makan untung kecil. Lihat tab Prestasi.</p>
       <p style="margin:0">Format jawapan prompt (klasifikasi, 3 kekuatan, 2 risiko, pelan harga) dikekalkan dalam halaman setiap saham, tetapi dikira dari data, bukan tekaan AI.</p></div>
@@ -532,16 +586,24 @@ function route() {
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { const h = location.hash; if (h.startsWith('#s-')) { const s = BY[h.slice(3)]; if (s) drawChart(s, openTrade(s.k)); } });
 
+function marketNav() {
+  const h = location.hash || '#home';
+  $('#mkt').innerHTML = Object.entries(MKS).map(([c, m]) =>
+    `<a href="?p=${c}${h.startsWith('#s-') ? '#home' : h}" aria-current="${c === MK}">${m.flag} ${esc(m.pendek)}${m.ujian ? '<small>UJIAN</small>' : ''}</a>`).join('');
+}
+window.addEventListener('hashchange', marketNav);
+
 function tape() {
   const k = D.klci, items = [];
-  if (k) items.push(`<span><b>KLCI</b>${px(k.tutup)} <span class="${cls(k.tutup - k.semalam)}">${pc(k.tutup / k.semalam - 1, 2)}</span></span>`);
+  if (k) items.push(`<span><b>${esc(IDX())}</b>${px(k.tutup)} <span class="${cls(k.tutup - k.semalam)}">${pc(k.tutup / k.semalam - 1, 2)}</span></span>`);
   S.filter(s => BLUE.has(s.k)).slice(0, 20).forEach(s => items.push(`<span><b>${esc(short(s.n))}</b>${px(s.c)} <span class="${cls(chg(s))}">${pc(chg(s), 2)}</span></span>`));
   $('#tape').innerHTML = items.join('') + items.join('');
 }
 
 async function load() {
   try {
-    const r = await fetch('vk-saham.json?t=' + Date.now(), {cache: 'no-store'});
+    marketNav();
+    const r = await fetch(M.file + '?t=' + Date.now(), {cache: 'no-store'});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     D = await r.json(); prepare(); tape();
     const age = (Date.now() - new Date(D.tarikhData + 'T17:00:00+08:00')) / 864e5;
@@ -550,7 +612,7 @@ async function load() {
     $('#v-home').innerHTML = `<div class="empty"><b>Data tak dapat dimuatkan</b>${esc(e.message)}. Cuba muat semula.</div>`;
     $('#live').textContent = 'Luar talian'; $('#live').className = 'live off'; return;
   }
-  try { const r = await fetch('ipo.json', {cache: 'no-store'}); if (r.ok) IPO = await r.json(); } catch (e) {}
+  if (M.ipo) try { const r = await fetch('ipo.json', {cache: 'no-store'}); if (r.ok) IPO = await r.json(); } catch (e) {}
   route();
 }
 load();
