@@ -1,0 +1,86 @@
+# KOD|Nama|ModalPasaran|EPS - SG, dijana 2026-11-15 oleh bina-senarai-vk-saham.ps1 (nilai dagangan >= 1000000/hari, harga >= 0.20)
+HBND|Bank of China|322212397056|0.14
+D05|DBS Group Holdings|198283722752|3.89
+O39|Oversea-Chinese Banking Corporation|124663029760|1.75
+HSHD|HSBC Holdings|77286064128|1.96
+Z74|Singapore Telecommunications|66583212032|0.34
+U11|United Overseas Bank|60735741952|5.62
+S63|Singapore Technologies Engineering|28866633728|0.18
+S68|Singapore Exchange|21941581824|0.65
+C6L|Singapore Airlines|21917997056|0.29
+F34|Wilmar International|18545438720|0.29
+C38U|CapitaLand Integrated Commercial Trust|18445918208|0.16
+G07|Great Eastern Holdings|17948258304|1.51
+J36|Jardine Matheson Holdings|17793529856|3.79
+H78|Hongkong Land Holdings|17630691328|1.06
+BN4|Keppel|16936303616|0.44
+9CI|CapitaLand Investment|11784733696|0.04
+A17U|CapitaLand Ascendas REIT|11289184256|0.16
+U96|Sembcorp Industries|10112753664|0.33
+C07|Jardine Matheson Southeast Asia|9371052032|3.21
+G13|Genting Singapore|7358822400|0.03
+U14|UOL Group|6677598720|0.62
+C09|City Developments|6450360320|0.91
+N2IU|Mapletree Pan Asia Commercial Trust|6239625216|0.05
+5E2|Seatrium|6090821120|0.16
+AJBU|Keppel DC REIT|5972277248|0.18
+M44U|Mapletree Logistics Trust|5704265216|0.04
+S58|SATS|5544543744|0.19
+D01|DFI Retail Group Holdings|5049117184|0.29
+ME8U|Mapletree Industrial Trust|4970653184|5.89
+J69U|Frasers Centrepoint Trust|4378951168|0.18
+K71U|Keppel REIT|4169307136|0.11
+EB5|First Resources|4133536000|0.37
+V03|Venture Corporation|4106807040|0.81
+T82U|Suntec Real Estate Investment Trust|4053262592|0.1
+CJLU|NetLink NBN Trust|3663152640|0.02
+BUOU|Frasers Logistics & Commercial Trust|3522963456|0.01
+VC2|Olam Group|3263701504|0
+HMN|CapitaLand Ascott Trust|3254462720|0.07
+S59|SIA Engineering Company|3191323904|0.15
+U10|UOB-Kay Hian Holdings|3011616000|0.31
+A7RU|Keppel Infrastructure Trust|2982310144|0.01
+C52|ComfortDelGro Corporation|2794112256|0.1
+H02|Haw Par Corporation|2789239040|1.04
+C2PU|Parkway Life Real Estate Investment Trust|2617274880|0.25
+AIY|iFAST Corporation|2412685568|0.4
+BVA|Top Glove|2405452032|0.01
+8YZ|Yangzijiang Maritime Development|2022844288|0.04
+AWX|AEM Holdings|1981191424|0.14
+NS8U|Hutchison Port Holdings Trust|1959997824|0.01
+8C8U|Centurion Accommodation REIT|1848939520|0.05
+JYEU|Lendlease Global Commercial REIT|1838748544|0.04
+CC3|StarHub|1813036672|0.17
+9A4U|ESR-REIT|1688840576|0.02
+H22|Hong Leong Asia|1612255360|0.2
+558|UMS Integration|1589350528|0.06
+BSL|Raffles Medical Group|1550940160|0.04
+CY6U|CapitaLand India Trust|1308486016|0.21
+F03|Food Empire Holdings|1220819072|0.13
+O5RU|AIMS APAC REIT|1154138624|0.14
+P40U|Starhill Global Real Estate Investment Trust|1128738176|0.02
+AU8U|CapitaLand China Trust|1098218880|-0.01
+UIBU|UI Boustead Real Estate Investment Trust|1060903808|0.05
+AP4|Riverstone Holdings|1052339264|0.05
+OU8|Centurion Corporation|1034157696|0.08
+NTDU|NTT DC REIT|952904064|0
+J85|CDL Hospitality Trusts|922142976|-0.02
+RE4|Geo Energy Resources|858886400|0.02
+PCT|PC Partner Group|845586432|0.33
+F9D|Boustead Singapore|838264000|0.47
+E28|Frencken Group|819276096|0.09
+CRPU|Sasseur Real Estate Investment Trust|793068416|0.04
+YF8|Yangzijiang Financial Holding|695210368|-0.04
+544|CSE Global|599464256|1.85
+DCRU|Digital Core REIT|596171904|0.03
+42C|iX Biopharma|493199168|-0.01
+MZH|Nanofilm Technologies International|486627744|0.02
+5TP|CNMC Goldmine Holdings|433659360|0.14
+ULG|UltraGreen.ai|424318432|0.06
+I07|ISDN Holdings|225486064|0.03
+E5H|Golden Agri-Resources|0|0.04
+OV8|Sheng Siong Group|0|0.11
+Y92|Thai Beverage Public Company|0|0.04
+S08|Singapore Post|0|0.04
+P8Z|Bumitama Agri|0|0.15
+BS6|Yangzijiang Shipbuilding (Holdings)|0|0.46
