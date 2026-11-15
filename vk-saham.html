@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VK Saham</title>
+<meta name="description" content="Signal saham Bursa Malaysia harian: beli pada paras tertinggi 52 minggu, jual bawah EMA50. Rekod jujur.">
+<meta name="theme-color" content="#0A0907">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* VK Saham: adik VK Signal untuk Bursa Malaysia. Hitam & emas, satu lajur, tab bar di bawah. */
+:root{
+  --bg:#0A0907; --surface:#14120E; --surface-2:#1C1914; --line:#2F2A20; --line-soft:#23201A;
+  --fg:#F3EEE3; --muted:#A39A86; --accent:#D9AC45; --accent-soft:rgba(217,172,69,.14); --accent-ink:#120E05;
+  --gold-hi:#F4D77E; --gold-lo:#A97A1C;
+  --buy:#1FC48D; --buy-soft:rgba(31,196,141,.14); --sell:#FF5A6A; --sell-soft:rgba(255,90,106,.14); --warn:#E8873A; --warn-soft:rgba(232,135,58,.15);
+  --shadow:0 18px 50px rgba(0,0,0,.45);
+  --font-display:'Chakra Petch','Segoe UI',system-ui,sans-serif;
+  --font-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#F6F2EA; --surface:#FFFFFF; --surface-2:#EFE9DD; --line:#DCD2BE; --line-soft:#E8E1D3;
+  --fg:#17130C; --muted:#6B6150; --accent:#94690C; --accent-soft:rgba(148,105,12,.11); --accent-ink:#FFFFFF;
+  --gold-hi:#E3BC55; --gold-lo:#8A600B;
+  --buy:#0E9A6B; --buy-soft:rgba(14,154,107,.11); --sell:#D93347; --sell-soft:rgba(217,51,71,.10); --warn:#C0611A; --warn-soft:rgba(192,97,26,.12);
+  --shadow:0 18px 50px rgba(60,45,15,.16); color-scheme:light;
+}}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);margin:0}
+body{font-family:var(--font-body);font-size:15px;line-height:1.5;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wide{max-width:1040px}
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:8px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg)}
+.brand b{font-family:var(--font-display);font-size:19px;letter-spacing:.02em;font-weight:700}
+.brand b span{color:var(--accent)}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:3px 10px;border-radius:999px;white-space:nowrap}
+.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.live.on{color:var(--buy)} .live.on::before{background:var(--buy)}
+.live.off{color:var(--warn)} .live.off::before{background:var(--warn)}
+.tape{overflow:hidden;border-top:1px solid var(--line-soft);font-family:var(--font-mono);font-size:12px;white-space:nowrap}
+.tape-in{display:inline-flex;gap:28px;padding:5px 14px;animation:tape 60s linear infinite}
+.tape-in span b{font-weight:600;color:var(--muted);margin-right:6px}
+@keyframes tape{to{transform:translateX(-50%)}}
+@keyframes pulse{50%{opacity:.3}}
+main{padding-block:20px 24px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+h1{font-size:24px;font-weight:600}
+h2{font-size:17px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+.sub{color:var(--muted);margin:4px 0 0;max-width:68ch}
+.k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.pos{color:var(--buy)} .neg{color:var(--sell)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+.note{font-size:13px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:10px 12px;margin:0}
+.banner{font-size:13.5px;background:var(--warn-soft);color:var(--warn);border-radius:9px;padding:10px 12px;margin:0}
+.hello{text-align:center;padding:10px 0 4px}
+.hello .name{font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1.1}
+.hello .name span{color:var(--accent)}
+.hello .clock{font-family:var(--font-mono);color:var(--muted);font-size:13px;margin-top:4px}
+.strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.strip>div{background:var(--surface);padding:12px 14px;min-width:0}
+.v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;margin-top:2px}
+.v small{font-size:12px;color:var(--muted);font-weight:500}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:left;text-decoration:none;color:var(--fg);display:flex;flex-direction:column;gap:2px}
+.tile:hover{border-color:var(--accent)}
+.tile b{font-family:var(--font-display);font-size:15px}
+.tile span{color:var(--muted);font-size:13px}
+.list{display:flex;flex-direction:column}
+.item{display:flex;align-items:center;gap:12px;padding:12px 4px;border:0;border-bottom:1px solid var(--line-soft);background:none;text-align:left;width:100%;text-decoration:none;color:var(--fg)}
+.item:last-child{border-bottom:0}
+.item:hover{background:var(--surface-2)}
+.coin{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-mono);font-weight:600;font-size:11.5px;flex:none;background:var(--accent-soft);color:var(--accent)}
+.item .grow{flex:1;min-width:0}
+.item .t{font-family:var(--font-display);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{font-size:12.5px;color:var(--muted)}
+.item .r{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:13.5px;white-space:nowrap}
+.pill{font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.st{font-size:11.5px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:6px;font-family:var(--font-display);white-space:nowrap}
+.st.BELI,.st.BARU{background:var(--buy);color:#04140D}
+.st.PEGANG{background:var(--accent-soft);color:var(--accent)}
+.st.HAMPIR{background:var(--warn-soft);color:var(--warn)}
+.st.NAIK{background:var(--buy-soft);color:var(--buy)}
+.st.TURUN,.st.ELAK{background:var(--sell-soft);color:var(--sell)}
+.st.SELESAI,.st.TERLEPAS{background:var(--surface-2);color:var(--muted)}
+.empty{padding:28px 14px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+.empty b{display:block;color:var(--fg);font-family:var(--font-display);font-size:16px;margin-bottom:4px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:999px;font-size:13.5px;color:var(--muted);text-decoration:none}
+.chip[aria-current="true"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+.hero-px{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:38px;font-weight:600;line-height:1.1;color:var(--accent)}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.box{background:var(--surface-2);border-radius:10px;padding:10px 12px;min-width:0}
+.box .p{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:17px;font-weight:600}
+.box.buy{background:var(--buy-soft)} .box.buy .p{color:var(--buy)}
+.box.sell{background:var(--sell-soft)} .box.sell .p{color:var(--sell)}
+.sig{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);text-decoration:none}
+.sig:hover{border-color:var(--accent)}
+.sig .head{display:flex;align-items:center;gap:10px}
+.sig .head .grow{flex:1;min-width:0}
+.calc{font-size:13px;background:var(--surface-2);border-radius:8px;padding:9px 11px;margin:0;color:var(--fg)}
+.calc b{font-family:var(--font-mono);font-weight:600}
+.chart-box{position:relative;width:100%;height:240px;background:var(--surface-2);border-radius:10px;overflow:hidden}
+.chart-box canvas{width:100%;height:100%;display:block}
+.cap{font-size:12.5px;color:var(--muted);margin:-6px 0 0}
+.spark{width:100%;height:56px;display:block}
+.dtable{width:100%;border-collapse:collapse;font-size:14px}
+.dtable th,.dtable td{padding:8px 10px;border-bottom:1px solid var(--line-soft);text-align:left;white-space:nowrap}
+.dtable th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.dtable td.num,.dtable th.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.dtable tr.bad td{color:var(--muted)}
+.dtable tr.good td:first-child{color:var(--accent);font-weight:600}
+.scroll-x{overflow-x:auto;min-width:0}
+.ana ol,.ana ul,.guide ol,.guide ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.guide p,.guide li{max-width:66ch}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);min-width:0}
+.field input,.field select{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--fg);font-family:var(--font-mono);width:100%}
+.search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.ipo{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.btn{border:1px solid var(--line);background:var(--surface-2);padding:8px 14px;border-radius:9px;font-weight:500;text-decoration:none;color:var(--fg);display:inline-block}
+.tabbar{position:fixed;z-index:30;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px;box-shadow:var(--shadow);max-width:calc(100vw - 20px)}
+.tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 14px;border-radius:13px;text-decoration:none;color:var(--muted);font-size:11.5px;font-weight:500;min-width:62px}
+.tabbar a svg{width:20px;height:20px}
+.tabbar a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+footer{color:var(--muted);font-size:12px;padding-block:8px 0;text-align:center}
+@media (max-width:560px){
+  .strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .three{gap:6px} .three .box{padding:8px 9px} .three .box .p{font-size:14.5px}
+  .tabbar a{padding:7px 8px;min-width:54px}
+  .hero-px{font-size:32px}
+  .chart-box{height:200px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap wide bar">
+    <a class="brand" href="#home" aria-label="VK Saham">
+      <svg width="30" height="34" viewBox="0 0 34 38" aria-hidden="true">
+        <defs><linearGradient id="vkGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4D77E"/><stop offset="1" stop-color="#A97A1C"/></linearGradient></defs>
+        <path d="M17 1.5 31.5 6.5v11.2c0 9.2-6 15.6-14.5 18.8C8.5 33.3 2.5 26.9 2.5 17.7V6.5Z" fill="url(#vkGold)"/>
+        <path d="M17 5 28.3 8.9v8.8c0 7.3-4.6 12.4-11.3 15.2C10.3 30.1 5.7 25 5.7 17.7V8.9Z" fill="#0A0907"/>
+        <path d="M8.6 12.5l3.6 11 3.6-11" fill="none" stroke="url(#vkGold)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M18.6 12.5v11M25.4 12.5l-6 5.5 6 5.5" fill="none" stroke="url(#vkGold)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <b>VK <span>Saham</span></b>
+    </a>
+    <span class="live" id="live">Memuatkan…</span>
+  </div>
+  <div class="tape" aria-hidden="true"><div class="tape-in" id="tape"></div></div>
+</header>
+
+<main>
+  <section id="v-home" class="wrap stack" data-view="home"></section>
+  <section id="v-signals" class="wrap stack" data-view="signals" hidden></section>
+  <section id="v-list" class="wrap stack" data-view="list" hidden></section>
+  <section id="v-stock" class="wrap stack" data-view="stock" hidden></section>
+  <section id="v-stats" class="wrap stack" data-view="stats" hidden></section>
+  <section id="v-guide" class="wrap stack guide" data-view="guide" hidden></section>
+  <footer class="wrap">VK Saham · data Yahoo Finance (tidak rasmi, boleh lewat/salah) · bukan nasihat kewangan</footer>
+</main>
+
+<nav class="tabbar" aria-label="Menu utama">
+  <a href="#home" data-v="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Utama</a>
+  <a href="#signals" data-v="signals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Signal</a>
+  <a href="#list" data-v="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Saham</a>
+  <a href="#stats" data-v="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Prestasi</a>
+  <a href="#guide" data-v="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></svg>Panduan</a>
+</nav>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const px = x => x == null || isNaN(x) ? '–' : (x < 1 ? x.toFixed(3) : x.toFixed(2));
+const rm = x => x == null || isNaN(x) ? '–' : 'RM' + Math.round(x).toLocaleString('en-MY');
+const rm2 = x => x == null || isNaN(x) ? '–' : 'RM' + x.toLocaleString('en-MY', {minimumFractionDigits:2, maximumFractionDigits:2});
+const pc = (x, d = 1) => x == null || isNaN(x) ? '–' : (x >= 0 ? '+' : '') + (x * 100).toFixed(d) + '%';
+const cls = x => x > 0 ? 'pos' : x < 0 ? 'neg' : '';
+const store = { get(k, d) { try { const v = localStorage.getItem('vks:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+                set(k, v) { try { localStorage.setItem('vks:' + k, JSON.stringify(v)); } catch (e) {} } };
+
+let D = null, S = [], BY = {}, T = [], IPO = null;
+let MODAL = store.get('modal', 5000), RISK = store.get('risk', 1);
+let BLUE = new Set(), DIVTOP = [], LISTCAT = 'semua', QUERY = '';
+
+/* Ujian 10 tahun (PromptTest.java, 960 saham Bursa, kos 0.5%, 2016-2026). Hasil dibekukan 2026-11-15. */
+const UJIAN = [
+  {n:'VK Saham (tertinggi 52 minggu, SL 2 ATR, jual bawah EMA50)', t:3473, w:16, avg:1.77, pf:1.41, a:'+1083R', b:'+317R', ok:true},
+  {n:'Prompt Swing: breakout 20 hari, RSI 50-70, SL rendah 10 hari, TP 1:2', t:5630, w:42, avg:-0.28, pf:0.93, a:'-56R', b:'-144R'},
+  {n:'Prompt Swing: pullback EMA20, SL rendah 10 hari, TP 1:2', t:8309, w:34, avg:-1.10, pf:0.69, a:'-862R', b:'-929R'},
+  {n:'Prompt Swing: breakout 20 hari, SL 2 ATR, TP 1:2', t:7387, w:32, avg:-0.75, pf:0.67, a:'-796R', b:'-1245R'},
+  {n:'Prompt Swing: pullback EMA20, SL 2 ATR, TP 1:2', t:9575, w:31, avg:-0.98, pf:0.64, a:'-1440R', b:'-1385R'},
+  {n:'Prompt Penny: volum 3x, cut loss ketat, TP 1:2', t:5659, w:29, avg:-1.79, pf:0.62, a:'-645R', b:'-1000R'}
+];
+const TAHUN = [['2017','+228'],['2018','-84'],['2019','+43'],['2020','+1021'],['2021','-152'],['2022','-31'],['2023','+157'],['2024','+211'],['2025','+78'],['2026','-71']];
+
+/* Yuran Moomoo MY satu hala: 0.03% komisen + RM3 platform + 0.03% penjelasan (maks RM1,000) + SST 8% atas yuran + duti setem RM1 setiap RM1,000 */
+function yuran(nilai) {
+  if (!(nilai > 0)) return 0;
+  const kom = nilai * 0.0003, plat = 3, clr = Math.min(nilai * 0.0003, 1000);
+  return kom + plat + clr + (kom + plat + clr) * 0.08 + Math.min(Math.ceil(nilai / 1000), 1000);
+}
+/* Saiz kedudukan: risiko % modal dibahagi jarak SL, dibundarkan ke lot 100 unit, tidak melebihi modal */
+function saiz(entry, sl) {
+  const R = entry - sl; if (!(R > 0) || !(entry > 0)) return null;
+  const byRisk = Math.floor(MODAL * RISK / 100 / R / 100) * 100, byCap = Math.floor(MODAL / entry / 100) * 100;
+  const u = Math.max(0, Math.min(byRisk, byCap)), nilai = u * entry;
+  return { u, lot: u / 100, nilai, rugi: u * R + yuran(nilai) + yuran(u * sl), yur: yuran(nilai) + yuran(nilai), byRisk, byCap };
+}
+function calcHtml(entry, sl) {
+  const z = saiz(entry, sl);
+  if (!z) return '';
+  if (z.u === 0) {
+    const min = 100 * entry;
+    return `<p class="calc">Modal ${rm(MODAL)} dengan risiko ${RISK}% tak cukup untuk 1 lot (100 unit = ${rm2(min)}, risiko ${rm2(100 * (entry - sl))}). Lebih baik lepaskan signal ini.</p>`;
+  }
+  return `<p class="calc">Modal ${rm(MODAL)}, risiko ${RISK}%: beli <b>${z.lot} lot</b> (${z.u.toLocaleString('en-MY')} unit) ≈ <b>${rm2(z.nilai)}</b>. Kalau kena SL, rugi lebih kurang <b class="neg">${rm2(z.rugi)}</b> termasuk yuran.${z.byCap < z.byRisk ? ' (Dihadkan oleh modal.)' : ''}</p>`;
+}
+
+function trendUp(s) { return s.e50 > s.e200 && s.c > s.e200; }
+/* Status yang dipapar ikut trade strategi: BELI hanya bila ada signal baru yang sah, PEGANG bila strategi sedang pegang */
+function stName(s) {
+  const ot = T.find(t => t.k === s.k && (t.status === 'PEGANG' || t.status === 'BARU'));
+  if (ot) return ot.status === 'BARU' ? 'BELI' : 'PEGANG';
+  return s.st === 'TURUN' ? 'ELAK' : s.st === 'BELI' ? 'NAIK' : s.st;
+}
+function chg(s) { return s.semalam ? s.c / s.semalam - 1 : 0; }
+function short(n) { return String(n).replace(/ (Holdings|Group|Berhad|Bhd|Corporation|Industries|International|Resources)\b.*$/i, '') || n; }
+
+function prepare() {
+  S = D.saham || []; BY = {}; S.forEach(s => BY[s.k] = s);
+  T = (D.trades || []).slice().sort((a, b) => b.sig < a.sig ? -1 : b.sig > a.sig ? 1 : 0);
+  BLUE = new Set(S.filter(s => s.mc > 0).sort((a, b) => b.mc - a.mc).slice(0, 30).map(s => s.k));
+  // Pelaburan "Dividen + Stabil": susun dividen 12 bulan / harga (tinggi) + volatiliti 252 hari (rendah)
+  const c = S.filter(s => s.dy > 0 && s.vol > 0);
+  const byDy = c.slice().sort((a, b) => b.dy - a.dy), byVol = c.slice().sort((a, b) => a.vol - b.vol);
+  const rank = {}; byDy.forEach((s, i) => rank[s.k] = i); byVol.forEach((s, i) => rank[s.k] += i);
+  DIVTOP = c.sort((a, b) => rank[a.k] - rank[b.k]).slice(0, 10);
+}
+const isPenny = s => s.c >= 0.2 && s.c < 1 && s.eps > 0;
+const openTrade = k => T.find(t => t.k === k && (t.status === 'PEGANG' || t.status === 'BARU'));
+
+/* ---------- views ---------- */
+function coin(s) { return `<span class="coin" aria-hidden="true">${esc(s.k)}</span>`; }
+function itemHtml(s, right) {
+  const ch = chg(s);
+  return `<a class="item" href="#s-${esc(s.k)}">${coin(s)}<span class="grow"><span class="t">${esc(s.n)}</span><br><span class="s">${esc(s.k)} · ${right || ('nilai ' + rm(s.nilai / 1e6) + 'j/hari')}</span></span>
+    <span class="r">${px(s.c)}<br><span class="${cls(ch)}">${pc(ch, 2)}</span></span>${LISTCAT === 'dividen' && !$('#v-list').hidden ? `<span class="pill">${s.dy.toFixed(1)}%</span>` : `<span class="st ${stName(s)}">${stName(s)}</span>`}</a>`;
+}
+
+function renderHome() {
+  const k = D.klci, baru = T.filter(t => t.status === 'BARU'), pegang = T.filter(t => t.status === 'PEGANG');
+  const hampir = S.filter(s => s.st === 'HAMPIR'), naik = S.filter(s => trendUp(s)).length;
+  const kch = k ? k.tutup / k.semalam - 1 : 0;
+  $('#v-home').innerHTML = `
+    <div class="hello"><div class="k">Bursa Malaysia · signal harian</div>
+      <div class="name">VK <span>Saham</span></div>
+      <div class="clock">Data hingga ${esc(D.tarikhData)} · dikemas ${esc(D.dikemas)} MYT</div></div>
+    ${k && !k.naik ? `<p class="banner">KLCI ${px(k.tutup)} berada <b>bawah EMA200</b> (${px(k.ema200)}): pasaran umum lemah. Signal tetap keluar (penapis indeks tidak membantu dalam ujian), tetapi jangka lebih banyak SL.</p>` : ''}
+    <div class="strip">
+      <div><div class="k">KLCI</div><div class="v">${k ? px(k.tutup) : '–'} <small class="${cls(kch)}">${pc(kch, 2)}</small></div></div>
+      <div><div class="k">Signal BELI</div><div class="v">${baru.length}</div></div>
+      <div><div class="k">Sedang pegang</div><div class="v">${pegang.length}</div></div>
+      <div><div class="k">Trend naik</div><div class="v">${naik}<small>/${S.length}</small></div></div>
+    </div>
+    ${k ? `<div class="panel"><div class="row between"><h2>KLCI 180 hari</h2><span class="st ${k.naik ? 'NAIK' : 'TURUN'}">${k.naik ? 'ATAS EMA200' : 'BAWAH EMA200'}</span></div>${spark(k.c, k.ema200)}<p class="cap">Garis putus-putus = EMA200 hari ini (${px(k.ema200)}).</p></div>` : ''}
+    <div class="panel"><div class="row between"><h2>Signal BELI terbaru</h2><a href="#signals" class="pill">Semua</a></div>
+      ${baru.length ? '<div class="list">' + baru.slice(0, 5).map(t => BY[t.k] ? itemHtml(BY[t.k], 'beli esok, had ' + px(t.buyMax)) : '').join('') + '</div>'
+        : `<div class="empty"><b>Tiada signal BELI hari ini</b>Biasa: signal jarang, kadang-kadang beberapa hari tiada. ${hampir.length} saham hampir paras 52 minggu.</div>`}
+    </div>
+    <div class="tiles">
+      <a class="tile" href="#list" data-cat="hampir"><b>Hampir breakout</b><span>${hampir.length} saham ≤3% dari paras tertinggi 52 minggu</span></a>
+      <a class="tile" href="#list" data-cat="blue"><b>Blue Chip</b><span>30 syarikat terbesar, status trend</span></a>
+      <a class="tile" href="#list" data-cat="dividen"><b>Pelaburan Dividen</b><span>10 saham dividen tinggi + stabil</span></a>
+      <a class="tile" href="#list" data-cat="ipo"><b>IPO ACE</b><span>IPO baru + apa kata sejarah</span></a>
+    </div>`;
+  $('#v-home').querySelectorAll('[data-cat]').forEach(a => a.addEventListener('click', () => { LISTCAT = a.dataset.cat; }));
+}
+
+function settingsHtml() {
+  return `<div class="panel"><h2>Modal saya</h2><div class="two">
+    <label class="field">Modal (RM)<input id="inModal" type="number" min="0" step="500" value="${MODAL}" inputmode="numeric"></label>
+    <label class="field">Risiko setiap trade (%)<select id="inRisk">${[0.5, 1, 1.5, 2].map(r => `<option value="${r}"${r == RISK ? ' selected' : ''}>${r}% = ${rm(MODAL * r / 100)}</option>`).join('')}</select></label></div>
+    <p class="cap">Saiz lot dikira supaya kalau kena SL, rugi lebih kurang sama dengan risiko ini. Disimpan dalam telefon ini sahaja.</p></div>`;
+}
+function bindSettings(redraw) {
+  const m = $('#inModal'), r = $('#inRisk');
+  if (m) m.addEventListener('change', () => { MODAL = Math.max(0, +m.value || 0); store.set('modal', MODAL); redraw(); });
+  if (r) r.addEventListener('change', () => { RISK = +r.value; store.set('risk', RISK); redraw(); });
+}
+
+function sigCard(t) {
+  const s = BY[t.k] || {}, isNew = t.status === 'BARU';
+  const entry = isNew ? t.close : t.entry, now = t.harga;
+  const pl = !isNew && t.entry ? now / t.entry - 1 : null;
+  return `<a class="sig" href="#s-${esc(t.k)}"><div class="head">${coin(t)}<div class="grow"><div class="t" style="font-family:var(--font-display);font-weight:600">${esc(t.n)}</div>
+      <div class="s" style="font-size:12.5px;color:var(--muted)">${esc(t.k)} · isyarat ${esc(t.sig)}${isNew ? '' : ' · beli ' + esc(t.masuk)}</div></div>
+      <span class="st ${t.status}">${isNew ? 'BELI' : t.status}</span></div>
+    <div class="three">
+      <div class="box buy"><div class="k">${isNew ? 'Had beli esok' : 'Harga beli'}</div><div class="p">${isNew ? '≤ ' + px(t.buyMax) : px(t.entry)}</div></div>
+      <div class="box sell"><div class="k">Stop Loss</div><div class="p">${px(t.sl)}</div></div>
+      <div class="box"><div class="k">${isNew ? 'Jual bila' : 'Sekarang'}</div><div class="p">${isNew ? '&lt; EMA50' : px(now) + ' <small class="' + cls(pl) + '">' + pc(pl) + '</small>'}</div></div>
+    </div>
+    ${isNew ? calcHtml(t.close, t.sl) : `<p class="calc">Jual bila harga <b>tutup bawah EMA50</b> (sekarang ${px(s.e50)}) atau kena SL ${px(t.sl)}.</p>`}
+  </a>`;
+}
+
+function renderSignals() {
+  const baru = T.filter(t => t.status === 'BARU'), pegang = T.filter(t => t.status === 'PEGANG');
+  const lepas = T.filter(t => t.status === 'TERLEPAS').slice(0, 5);
+  $('#v-signals').innerHTML = `
+    <div><h1>Signal</h1><p class="sub">Isyarat dikira selepas pasaran tutup (data ${esc(D.tarikhData)}). Beli pada <b>harga buka esok</b>, hanya jika tidak melebihi had beli. Jangan kejar.</p></div>
+    ${settingsHtml()}
+    <h2>BELI esok (${baru.length})</h2>
+    ${baru.length ? baru.map(sigCard).join('') : `<div class="empty"><b>Tiada signal BELI baru</b>Tunggu. Lihat senarai Hampir di tab Saham.</div>`}
+    <h2>Sedang pegang (${pegang.length})</h2>
+    <p class="cap" style="margin:0">Trade yang strategi masih pegang (termasuk yang bermula sebelum rekod langsung).</p>
+    ${pegang.length ? pegang.map(sigCard).join('') : `<div class="empty"><b>Tiada kedudukan terbuka</b></div>`}
+    ${lepas.length ? `<div class="panel"><h2>Terlepas baru-baru ini</h2><p class="cap" style="margin:0">Harga buka melonjak atas had beli, jadi strategi tidak beli. Jangan kejar.</p><div class="list">${lepas.map(t => BY[t.k] ? itemHtml(BY[t.k], 'isyarat ' + t.sig + ', had ' + px(t.buyMax)) : '').join('')}</div></div>` : ''}`;
+  bindSettings(renderSignals);
+}
+
+const CATS = [['semua', 'Semua'], ['beli', 'BELI'], ['hampir', 'Hampir'], ['blue', 'Blue Chip'], ['dividen', 'Dividen'], ['penny', 'Penny'], ['ipo', 'IPO ACE']];
+function renderList() {
+  let body = '';
+  if (LISTCAT === 'ipo') body = ipoHtml();
+  else {
+    let L = S.slice(), note = '';
+    if (LISTCAT === 'beli') { L = L.filter(s => openTrade(s.k)); note = 'Signal baru atau sedang dipegang strategi.'; }
+    if (LISTCAT === 'hampir') { L = L.filter(s => s.st === 'HAMPIR').sort((a, b) => b.c / b.hh - a.c / a.hh); note = 'Trend naik dan ≤3% bawah paras tertinggi 52 minggu. BUKAN signal: tunggu harga tutup atas paras itu.'; }
+    if (LISTCAT === 'blue') { L = L.filter(s => BLUE.has(s.k)).sort((a, b) => b.mc - a.mc); note = '30 syarikat terbesar mengikut modal pasaran. Status ialah trend swing, bukan cadangan pelaburan.'; }
+    if (LISTCAT === 'dividen') { L = DIVTOP.slice(); note = `Dividen + Stabil: dividen 12 bulan tinggi + harga kurang bergerak. Diuji 2017-2026 dengan yuran Moomoo: 5 saham, beli sekali setahun, pegang 12 bulan ≈ +8.4% setahun termasuk dividen (bulan mula terburuk masih +5.6% setahun, tapi nilai pernah turun −19% di tengah jalan). Modal bawah RM20k: ambil 5 teratas. Dividen yang sangat tinggi mungkin termasuk dividen khas sekali sahaja: semak dulu.`; }
+    if (LISTCAT === 'penny') { L = L.filter(isPenny).sort((a, b) => b.nilai - a.nilai); note = 'Harga bawah RM1 dan syarikat untung (EPS > 0). Peraturan "lonjakan volum" dari prompt RUGI dalam ujian 10 tahun (PF 0.62), jadi tiada signal penny khas. Penny hanya dapat signal BELI kalau lulus peraturan VK biasa.'; }
+    const ORD = {BELI: 0, PEGANG: 1, HAMPIR: 2, NAIK: 3, ELAK: 4};
+    if (LISTCAT === 'semua') L.sort((a, b) => (ORD[stName(a)] - ORD[stName(b)]) || b.nilai - a.nilai);
+    if (QUERY) { const q = QUERY.toLowerCase(); L = L.filter(s => s.n.toLowerCase().includes(q) || s.k.includes(q)); }
+    const right = s => LISTCAT === 'dividen' ? `dividen ${s.dy.toFixed(1)}% · gerak ${s.vol.toFixed(0)}%/thn` : LISTCAT === 'hampir' ? `${pc(s.c / s.hh - 1)} dari ${px(s.hh)}` : LISTCAT === 'blue' ? `modal ${rm(s.mc / 1e9)}b · dividen ${s.dy.toFixed(1)}%` : LISTCAT === 'penny' ? `EPS ${s.eps} · volum ${s.volx}x purata` : null;
+    body = `${note ? `<p class="note">${note}</p>` : ''}<input class="search" id="q" type="search" placeholder="Cari nama atau kod…" value="${esc(QUERY)}">
+      <div class="panel" style="padding:6px 12px">${L.length ? '<div class="list">' + L.map(s => itemHtml(s, right(s))).join('') + '</div>' : '<div class="empty"><b>Tiada saham</b>Cuba kategori lain.</div>'}</div>`;
+  }
+  $('#v-list').innerHTML = `<div><h1>Saham</h1><p class="sub">${S.length} saham Bursa yang aktif (nilai dagangan ≥ RM1 juta sehari). Tekan satu saham untuk analisis.</p></div>
+    <div class="chips">${CATS.map(([c, n]) => `<button class="chip" data-c="${c}" aria-current="${c === LISTCAT}">${n}</button>`).join('')}</div>${body}`;
+  $('#v-list').querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => { LISTCAT = b.dataset.c; renderList(); }));
+  const q = $('#q'); if (q) q.addEventListener('input', () => { QUERY = q.value; const pos = q.selectionStart; renderList(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); });
+}
+
+function ipoHtml() {
+  if (!IPO) return '<div class="empty"><b>Data IPO belum dimuatkan</b></div>';
+  const h = IPO.sejarah;
+  return `<div class="panel"><h2>Apa kata sejarah</h2><p class="cap" style="margin:0">${esc(h.nota)}</p>
+    <div class="scroll-x"><table class="dtable"><thead><tr><th>Jika beli harga buka hari pertama</th><th class="num">Naik</th><th class="num">Median</th></tr></thead><tbody>
+    ${h.baris.map(r => `<tr><td>${esc(r[0])}</td><td class="num">${esc(r[1])}</td><td class="num ${r[2].startsWith('-') ? 'neg' : ''}">${esc(r[2])}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">${esc(h.kesimpulan)}</p></div>
+    <div class="panel"><div class="row between"><h2>IPO terkini</h2><span class="cap" style="margin:0">dikemas ${esc(IPO.dikemaskini)}</span></div>
+    ${IPO.senarai.map(i => `<div class="ipo"><div class="row between"><h3>${esc(i.nama)}</h3><span class="pill">skor ${i.jumlah > 0 ? '+' : ''}${i.jumlah}</span></div>
+      <div class="s" style="font-size:13px;color:var(--muted)">Senarai ${esc(i.senaraiPada)} · harga IPO RM${i.harga} · PE ${i.pe} · langganan ${esc(i.langganan)} · ${esc(i.permohonan)}</div>
+      <div style="font-size:13.5px">${esc(i.perniagaan)}</div>
+      <ul style="margin:0;padding-left:18px;font-size:13px">${i.skor.map(s => `<li><span class="${s[1] > 0 ? 'pos' : s[1] < 0 ? 'neg' : ''}">${s[1] > 0 ? '+1' : s[1] < 0 ? '−1' : '0'}</span> ${esc(s[0])}</li>`).join('')}</ul>
+      <p class="note">${esc(i.pandangan)}</p></div>`).join('')}
+    <p class="cap" style="margin:0">Skor thesis (harga, permintaan, jualan pemegang lama, guna dana, trend untung) mengikut prompt, tetapi BELUM diuji: ia tidak meramal pulangan. Sumber: ${esc(IPO.sumber.join(', '))}.</p></div>`;
+}
+
+/* ---------- satu saham: analisis format prompt ---------- */
+function analisa(s) {
+  const ot = openTrade(s.k), up = trendUp(s), toHigh = s.c / s.hh - 1, cats = [];
+  if (ot || s.st === 'HAMPIR') cats.push('Swing Trade');
+  if (DIVTOP.some(d => d.k === s.k)) cats.push('Pelaburan (Dividen + Stabil)');
+  if (BLUE.has(s.k)) cats.push('Blue Chip');
+  if (isPenny(s)) cats.push('Penny berkualiti (pantau)');
+  const kuat = [], risiko = [];
+  if (up) kuat.push(`Trend naik: harga ${px(s.c)} atas EMA200 (${px(s.e200)}) dan EMA50 atas EMA200.`);
+  if (up && toHigh >= -0.03) kuat.push(`Dekat paras tertinggi 52 minggu (${px(s.hh)}, ${pc(toHigh)}): breakout = isyarat BELI.`);
+  if (s.dy >= 4) kuat.push(`Dividen 12 bulan ${s.dy.toFixed(1)}% setahun.`);
+  if (s.vol > 0 && s.vol <= 25) kuat.push(`Harga stabil: bergerak ±${s.vol.toFixed(0)}% setahun.`);
+  if (s.mc >= 10e9) kuat.push(`Syarikat besar: modal pasaran ${rm(s.mc / 1e9)} bilion.`);
+  if (s.eps > 0) kuat.push(`Syarikat untung (EPS RM${s.eps}).`);
+  kuat.push(`Mudah beli/jual: purata ${rm(s.nilai / 1e6)} juta didagang sehari.`);
+  if (!up) risiko.push(`Trend turun: harga bawah EMA200 (${px(s.e200)}) atau EMA50 bawah EMA200. Strategi tidak beli.`);
+  if (D.klci && !D.klci.naik) risiko.push('KLCI bawah EMA200: pasaran umum lemah, lebih banyak breakout gagal.');
+  if (s.eps != null && s.eps <= 0) risiko.push(`Syarikat rugi (EPS RM${s.eps}).`);
+  if (s.vol > 40) risiko.push(`Harga sangat liar: bergerak ±${s.vol.toFixed(0)}% setahun.`);
+  if (s.c < 1) risiko.push(`Saham penny: 1 sen = ${(0.01 / s.c * 100).toFixed(1)}% pergerakan.`);
+  if (up && s.c / s.e50 - 1 > 0.15) risiko.push(`Harga ${pc(s.c / s.e50 - 1)} atas EMA50: kalau jatuh ke EMA50, untung banyak hilang.`);
+  if (s.dy < 1) risiko.push('Dividen kecil atau tiada.');
+  risiko.push('Strategi ini menang lebih kurang 1 daripada 6 trade (ujian 10 tahun); kebanyakan trade rugi kecil.');
+  let plan;
+  if (ot && ot.status === 'BARU') plan = `<li><b>Zon belian:</b> harga buka esok, hanya jika ≤ ${px(ot.buyMax)}.</li><li><b>Stop Loss:</b> ${px(ot.sl)} (2 × ATR).</li><li><b>Sasaran:</b> tiada TP tetap. Jual bila harga tutup bawah EMA50 (sekarang ${px(s.e50)}). Dalam ujian, trade yang menang purata naik jauh lebih besar daripada 1:2.</li>`;
+  else if (ot) plan = `<li><b>Sudah dibeli</b> ${esc(ot.masuk)} pada ${px(ot.entry)} (sekarang ${pc(ot.harga / ot.entry - 1)}).</li><li><b>Stop Loss:</b> ${px(ot.sl)}.</li><li><b>Jual:</b> bila tutup bawah EMA50 (sekarang ${px(s.e50)}).</li>`;
+  else if (up) plan = `<li><b>Zon belian:</b> tunggu harga TUTUP atas ${px(s.hh)} (paras tertinggi 52 minggu). Kemudian beli harga buka esok.</li><li><b>Stop Loss anggaran:</b> ${px(s.hh - 2 * s.atr)} (paras itu − 2 × ATR ${px(s.atr)}).</li><li><b>Sasaran:</b> tiada TP tetap; jual bila tutup bawah EMA50.</li>`;
+  else plan = `<li><b>Swing: ELAK.</b> Tunggu trend naik semula (harga atas EMA200 ${px(s.e200)}).</li>`;
+  if (DIVTOP.some(d => d.k === s.k)) plan += `<li><b>Pelaburan:</b> dalam senarai Dividen + Stabil. Beli sekali setahun, pegang 12 bulan, tiada SL (diuji: ≈ +8.4% setahun termasuk dividen).</li>`;
+  return { cats, kuat: kuat.slice(0, 3), risiko: risiko.slice(0, 2), plan };
+}
+
+function renderStock(k) {
+  const s = BY[k];
+  if (!s) { $('#v-stock').innerHTML = `<div class="empty"><b>Saham ${esc(k)} tiada dalam senarai</b><a href="#list">Kembali</a></div>`; return; }
+  const a = analisa(s), ch = chg(s), ot = openTrade(k), hist = T.filter(t => t.k === k);
+  $('#v-stock').innerHTML = `
+    <a href="#list" class="cap" style="margin:0">← Senarai saham</a>
+    <div class="row between"><div><h1>${esc(s.n)}</h1><div class="k">${esc(s.k)}.KL · data ${esc(s.tarikh)}</div></div><span class="st ${stName(s)}">${stName(s)}</span></div>
+    <div><div class="hero-px">${px(s.c)}</div><div class="${cls(ch)} mono">${pc(ch, 2)} hari ini</div></div>
+    <div class="panel"><div class="chart-box"><canvas id="cv"></canvas></div>
+      <p class="cap">180 hari. Garis emas = paras tertinggi 52 minggu ${px(s.hh)} · biru = EMA50 hari ini ${px(s.e50)}${ot ? ' · merah = SL ' + px(ot.sl) : ''}.</p></div>
+    ${ot ? sigCard(ot) : ''}
+    <div class="panel ana">
+      <div class="k">Analisis ikut format prompt</div>
+      <div><h3>1. Ringkasan klasifikasi</h3><p style="margin:4px 0 0">${a.cats.length ? a.cats.map(c => `<span class="pill">${esc(c)}</span>`).join(' ') : '<span class="pill">Pantau sahaja</span>'}</p></div>
+      <div><h3>2. Kekuatan utama</h3><ol>${a.kuat.map(x => `<li>${x}</li>`).join('')}</ol></div>
+      <div><h3>3. Risiko utama</h3><ol>${a.risiko.map(x => `<li>${x}</li>`).join('')}</ol></div>
+      <div><h3>4. Pelan harga</h3><ul>${a.plan}</ul></div>
+      <p class="note">Dikira dari data harga sahaja, bukan pendapat AI. Fundamental (P/E industri, aliran tunai, prospektus) tiada dalam data ini: semak laporan suku tahun di Bursa sebelum beli.</p>
+    </div>
+    <div class="two">
+      <div class="box"><div class="k">Dividen 12 bulan</div><div class="p">${s.dy.toFixed(1)}%</div></div>
+      <div class="box"><div class="k">Bergerak setahun</div><div class="p">±${s.vol}%</div></div>
+      <div class="box"><div class="k">Modal pasaran</div><div class="p">${s.mc ? rm(s.mc / 1e9) + 'b' : '–'}</div></div>
+      <div class="box"><div class="k">Volum hari ini</div><div class="p">${s.volx}× purata</div></div>
+    </div>
+    <div class="panel"><h2>Rekod strategi saham ini (13 bulan)</h2>
+      ${hist.length ? `<div class="scroll-x"><table class="dtable"><thead><tr><th>Isyarat</th><th>Status</th><th class="num">Beli</th><th class="num">Jual</th><th class="num">Hasil</th></tr></thead><tbody>
+      ${hist.map(t => `<tr><td>${esc(t.sig)}</td><td><span class="st ${t.status}">${t.status}</span></td><td class="num">${px(t.entry)}</td><td class="num">${t.exit != null ? px(t.exit) : '–'}</td><td class="num ${cls(t.ret)}">${t.ret != null ? pc(t.ret) : '–'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="cap" style="margin:0">Tiada isyarat dalam 13 bulan lepas.</p>'}</div>`;
+  drawChart(s, ot);
+}
+
+function drawChart(s, ot) {
+  const cv = $('#cv'); if (!cv) return;
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  const g = cv.getContext('2d'); g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const c = s.cl, lv = [s.hh, s.e50].concat(ot ? [ot.sl] : []);
+  let lo = Math.min(...c, ...lv), hi = Math.max(...c, ...lv); const pad = (hi - lo) * 0.08 || 0.01; lo -= pad; hi += pad;
+  const W = r.width, H = r.height, X = i => 8 + i * (W - 60) / (c.length - 1), Y = v => 8 + (hi - v) * (H - 16) / (hi - lo);
+  const line = (v, color, dash) => { g.strokeStyle = color; g.setLineDash(dash ? [5, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.moveTo(8, Y(v)); g.lineTo(W - 52, Y(v)); g.stroke(); g.setLineDash([]);
+    g.fillStyle = color; g.font = '11px JetBrains Mono, monospace'; g.fillText(px(v), W - 48, Y(v) + 4); };
+  line(s.hh, col('--accent'), true); line(s.e50, '#5B9BF0', true); if (ot) line(ot.sl, col('--sell'), true);
+  g.strokeStyle = col('--fg'); g.lineWidth = 1.8; g.beginPath();
+  c.forEach((v, i) => i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v))); g.stroke();
+}
+
+function spark(c, ref) {
+  const w = 300, h = 56, lo = Math.min(...c, ref), hi = Math.max(...c, ref), y = v => (h - 4 - (v - lo) / (hi - lo || 1) * (h - 8)).toFixed(1);
+  const pts = c.map((v, i) => (i * w / (c.length - 1)).toFixed(1) + ',' + y(v)).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${w}" y1="${y(ref)}" y2="${y(ref)}" stroke="var(--muted)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function statBlock(L) {
+  const done = L.filter(t => t.status === 'SELESAI'), win = done.filter(t => t.ret > 0);
+  const sum = done.reduce((a, t) => a + t.ret, 0), best = done.reduce((a, t) => Math.max(a, t.ret), -1), worst = done.reduce((a, t) => Math.min(a, t.ret), 1);
+  return { n: done.length, open: L.filter(t => t.status === 'PEGANG').length, win: done.length ? win.length / done.length : 0, avg: done.length ? sum / done.length : 0, sum, best, worst };
+}
+function renderStats() {
+  const live = T.filter(t => t.sig >= D.mula), past = T.filter(t => t.sig < D.mula);
+  const L = statBlock(live), P = statBlock(past);
+  $('#v-stats').innerHTML = `
+    <div><h1>Prestasi</h1><p class="sub">Tiga lapisan bukti: rekod langsung (bermula ${esc(D.mula)}), main semula 13 bulan dari lilin, dan ujian 10 tahun. Selepas yuran 0.5% pergi-balik.</p></div>
+    <div class="panel"><div class="row between"><h2>Rekod langsung</h2><span class="pill">sejak ${esc(D.mula)}</span></div>
+      ${live.length ? `<div class="strip"><div><div class="k">Selesai</div><div class="v">${L.n}</div></div><div><div class="k">Menang</div><div class="v">${(L.win * 100).toFixed(0)}%</div></div><div><div class="k">Purata</div><div class="v ${cls(L.avg)}">${pc(L.avg)}</div></div><div><div class="k">Terbuka</div><div class="v">${L.open}</div></div></div>`
+        : `<div class="empty"><b>Belum ada signal sejak ${esc(D.mula)}</b>Rekod ini hanya bertambah ke depan, tidak boleh diubah.</div>`}</div>
+    <div class="panel"><h2>Main semula 13 bulan</h2>
+      <div class="strip"><div><div class="k">Trade selesai</div><div class="v">${P.n}</div></div><div><div class="k">Menang</div><div class="v">${(P.win * 100).toFixed(0)}%</div></div>
+      <div><div class="k">Purata / trade</div><div class="v ${cls(P.avg)}">${pc(P.avg, 2)}</div></div><div><div class="k">Jika RM1,000 / trade</div><div class="v ${cls(P.sum)}">${rm(P.sum * 1000)}</div></div></div>
+      <p class="cap" style="margin:0">Terbaik ${pc(P.best)}, terburuk ${pc(P.worst)}. Dikira semula setiap hari dari harga sebenar pada saham dalam senarai hari ini (ada bias: saham yang sudah jatuh keluar senarai tiada).</p></div>
+    <div class="panel"><h2>Ujian 10 tahun: VK vs prompt</h2>
+      <p class="cap" style="margin:0">960 saham Bursa, 2016-2026, kos 0.5%. Peraturan prompt dibekukan dulu, baru diuji. R = berapa kali risiko.</p>
+      <div class="scroll-x"><table class="dtable"><thead><tr><th>Peraturan</th><th class="num">Trade</th><th class="num">Menang</th><th class="num">Purata</th><th class="num">PF</th><th class="num">Separuh 1</th><th class="num">Separuh 2</th></tr></thead><tbody>
+      ${UJIAN.map(u => `<tr class="${u.ok ? 'good' : 'bad'}"><td style="white-space:normal;min-width:220px">${esc(u.n)}</td><td class="num">${u.t}</td><td class="num">${u.w}%</td><td class="num ${cls(u.avg)}">${u.avg > 0 ? '+' : ''}${u.avg.toFixed(2)}%</td><td class="num">${u.pf.toFixed(2)}</td><td class="num">${u.a}</td><td class="num">${u.b}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">PF = jumlah untung ÷ jumlah rugi. Bawah 1 = rugi. Hanya peraturan VK lulus. Tapi jujur: hampir 3/4 untungnya datang dari tahun 2020 (lantunan selepas COVID). Tanpa 2020: +379R dalam 9 tahun.</p>
+      <div class="scroll-x"><table class="dtable"><thead><tr>${TAHUN.map(y => `<th class="num">${y[0]}</th>`).join('')}</tr></thead><tbody><tr>${TAHUN.map(y => `<td class="num ${y[1].startsWith('-') ? 'neg' : 'pos'}">${y[1]}R</td>`).join('')}</tr></tbody></table></div>
+    </div>`;
+}
+
+function renderGuide() {
+  const ex = 1.00, sl = 0.92, z = saiz(ex, sl);
+  $('#v-guide').innerHTML = `
+    <div><h1>Panduan</h1><p class="sub">Cara guna VK Saham, dalam 5 minit.</p></div>
+    <div class="panel"><h2>Peraturan (sama setiap hari)</h2><ol>
+      <li><b>BELI</b> bila harga tutup <b>atas paras tertinggi 52 minggu</b>, EMA50 atas EMA200, harga atas EMA200, dan saham aktif (≥ RM1 juta sehari).</li>
+      <li>Beli pada <b>harga buka esok</b>, hanya jika ≤ had beli (tutup + 0.5 ATR). Kalau buka lebih tinggi: <b>lepaskan</b>, jangan kejar.</li>
+      <li><b>Stop Loss</b> = 2 × ATR bawah harga beli. Letak terus selepas beli.</li>
+      <li><b>JUAL</b> bila harga tutup bawah <b>EMA50</b>. Tiada TP tetap: biar untung lari.</li></ol></div>
+    <div class="panel"><h2>Contoh dengan duit</h2>
+      <p style="margin:0">Modal ${rm(MODAL)}, risiko ${RISK}%. Signal: beli ${px(ex)}, SL ${px(sl)}.</p>
+      <div class="scroll-x"><table class="dtable"><thead><tr><th>Apa jadi</th><th class="num">Untung/rugi</th></tr></thead><tbody>
+        <tr><td>Beli ${z ? z.lot : 0} lot (${z ? z.u : 0} unit)</td><td class="num">${z ? rm2(z.nilai) : '–'}</td></tr>
+        <tr><td>Kena SL ${px(sl)}</td><td class="num neg">−${z ? rm2(z.rugi) : '–'}</td></tr>
+        <tr><td>Naik ke 1.20, tutup bawah EMA50 di 1.15</td><td class="num pos">+${z ? rm2(z.u * 0.15 - z.yur) : '–'}</td></tr>
+        <tr><td>Trend besar, jual di 1.50</td><td class="num pos">+${z ? rm2(z.u * 0.5 - z.yur) : '–'}</td></tr></tbody></table></div>
+      <p class="cap" style="margin:0">Termasuk yuran Moomoo MY (komisen, platform RM3, penjelasan, SST, duti setem). Biasanya 5 rugi kecil, 1 untung besar.</p></div>
+    <div class="panel"><h2>Kenapa bukan peraturan dalam prompt?</h2>
+      <p style="margin:0">Prompt "penganalisis ekuiti" anda kami tukar kepada peraturan tepat (EMA20/50, RSI 50-70, breakout atau pullback, SL teknikal, TP 1:2, penny lonjakan volum) dan uji pada 960 saham, 10 tahun. <b>Semua 5 versi rugi</b> (PF 0.62-0.93). Sebabnya: TP 1:2 memotong trend yang besar, dan yuran 0.5% makan untung kecil. Lihat tab Prestasi.</p>
+      <p style="margin:0">Format jawapan prompt (klasifikasi, 3 kekuatan, 2 risiko, pelan harga) dikekalkan dalam halaman setiap saham, tetapi dikira dari data, bukan tekaan AI.</p></div>
+    <div class="panel"><h2>Teknik guna AI dengan betul</h2><ol>
+      <li>Suruh AI tulis <b>peraturan bernombor</b>, bukan ramal harga.</li>
+      <li><b>Bekukan</b> peraturan sebelum lihat hasil.</li>
+      <li><b>Uji</b> pada 10 tahun, ratusan saham, dengan yuran.</li>
+      <li>Lulus hanya jika PF &gt; 1.2, untung dalam kedua-dua separuh data, ≥ 100 trade.</li>
+      <li>Guna AI untuk perkara yang data harga tak boleh: baca laporan suku tahun, semak PN17, terangkan berita.</li></ol></div>
+    <p class="banner">Bukan nasihat kewangan. Ujian masa lepas tidak menjamin masa depan. Data Yahoo tidak rasmi dan boleh salah: semak harga di Moomoo sebelum beli.</p>`;
+}
+
+/* ---------- router ---------- */
+function route() {
+  if (!D) return;
+  const h = (location.hash || '#home').slice(1);
+  const v = h.startsWith('s-') ? 'stock' : (['home', 'signals', 'list', 'stats', 'guide'].includes(h) ? h : 'home');
+  document.querySelectorAll('main > section').forEach(sec => sec.hidden = sec.dataset.view !== v);
+  document.querySelectorAll('.tabbar a').forEach(a => { if (a.dataset.v === (v === 'stock' ? 'list' : v)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  ({home: renderHome, signals: renderSignals, list: renderList, stats: renderStats, guide: renderGuide})[v]?.() ?? renderStock(h.slice(2));
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+window.addEventListener('resize', () => { const h = location.hash; if (h.startsWith('#s-')) { const s = BY[h.slice(3)]; if (s) drawChart(s, openTrade(s.k)); } });
+
+function tape() {
+  const k = D.klci, items = [];
+  if (k) items.push(`<span><b>KLCI</b>${px(k.tutup)} <span class="${cls(k.tutup - k.semalam)}">${pc(k.tutup / k.semalam - 1, 2)}</span></span>`);
+  S.filter(s => BLUE.has(s.k)).slice(0, 20).forEach(s => items.push(`<span><b>${esc(short(s.n))}</b>${px(s.c)} <span class="${cls(chg(s))}">${pc(chg(s), 2)}</span></span>`));
+  $('#tape').innerHTML = items.join('') + items.join('');
+}
+
+async function load() {
+  try {
+    const r = await fetch('vk-saham.json?t=' + Date.now(), {cache: 'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    D = await r.json(); prepare(); tape();
+    const age = (Date.now() - new Date(D.tarikhData + 'T17:00:00+08:00')) / 864e5;
+    const lv = $('#live'); lv.textContent = 'Data ' + D.tarikhData; lv.className = 'live ' + (age < 4 ? 'on' : 'off');
+  } catch (e) {
+    $('#v-home').innerHTML = `<div class="empty"><b>Data tak dapat dimuatkan</b>${esc(e.message)}. Cuba muat semula.</div>`;
+    $('#live').textContent = 'Luar talian'; $('#live').className = 'live off'; return;
+  }
+  try { const r = await fetch('ipo.json', {cache: 'no-store'}); if (r.ok) IPO = await r.json(); } catch (e) {}
+  route();
+}
+load();
+</script>
+</body>
+</html>
